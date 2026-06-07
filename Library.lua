@@ -79,10 +79,34 @@ local CustomImageManagerAssets = {
         Id = nil,
     },
 
+    LoadingBarPixelTexture = {
+        RobloxId = 0,
+        Path = "Obsidian/assets/LoadingBarPixelTexture.png",
+        URL = BaseURL .. "assets/LoadingBarPixelTexture.png",
+
+        Id = nil,
+    },
+
+    LoadingBarPixelTextureV2 = {
+        RobloxId = 0,
+        Path = "Obsidian/assets/LoadingBarPixelTextureV2.png",
+        URL = BaseURL .. "assets/LoadingBarPixelTextureV2.png",
+
+        Id = nil,
+    },
+
     PixelLoadingDecor = {
         RobloxId = 0,
         Path = "Obsidian/assets/PixelLoadingDecor.png",
         URL = BaseURL .. "assets/PixelLoadingDecor.png",
+
+        Id = nil,
+    },
+
+    PixelLoadingDecorV2 = {
+        RobloxId = 0,
+        Path = "Obsidian/assets/PixelLoadingDecorV2.png",
+        URL = BaseURL .. "assets/PixelLoadingDecorV2.png",
 
         Id = nil,
     },
@@ -547,21 +571,43 @@ local Templates = {
         SurfaceFill = true,
         SurfaceFillTransparency = 0,
         SurfaceFillColor = nil,
+        SurfaceInnerStroke = true,
+        SurfaceInnerStrokeColor = "AccentColor",
+        SurfaceInnerStrokeTransparency = 0.62,
         DrawingDecorations = true,
         Drawings = {},
         Decor = true,
-        DecorImage = CustomImageManager.GetAsset("PixelLoadingDecor"),
+        DecorImage = CustomImageManager.GetAsset("PixelLoadingDecorV2"),
         DecorImageTransparency = 0.28,
         DecorImageColor3 = "WhiteColor",
         DecorHeight = 92,
-        DecorPosition = "Bottom",
+        DecorPosition = "Full",
         DecorScaleType = Enum.ScaleType.Crop,
         ProgressShine = false,
         ProgressTexture = true,
-        ProgressTextureImage = CustomImageManager.GetAsset("LoadingBarTexture"),
-        ProgressTextureTransparency = 0.42,
+        ProgressTextureImage = CustomImageManager.GetAsset("LoadingBarPixelTextureV2"),
+        ProgressTextureTransparency = 0.02,
+        ProgressTextureColor = "WhiteColor",
         ProgressTextureSpeed = 1.35,
-        ProgressTextureTileSize = UDim2.fromOffset(64, 16),
+        ProgressTextureTileSize = UDim2.fromOffset(192, 16),
+        ProgressTrackTexture = true,
+        ProgressTrackTextureImage = nil,
+        ProgressTrackTextureTransparency = 0.84,
+        ProgressTrackTextureColor = "AccentColor",
+        ProgressTrackTextureTileSize = nil,
+        ProgressBarSize = nil,
+        ProgressBarHeight = 16,
+        ProgressBarPadding = 2,
+        ProgressBarTransparency = 0.18,
+        ProgressBarColor = "MainColor",
+        ProgressBarStrokeColor = "AccentColor",
+        ProgressBarStrokeTransparency = 0.26,
+        ProgressBarShadowTransparency = 0.78,
+        ProgressFillTransparency = 0.06,
+        ProgressFillColor = "AccentColor",
+        ProgressCap = false,
+        ProgressCapColor = "WhiteColor",
+        ProgressCapTransparency = 0.16,
         Particles = false,
         ParticleCount = 10,
 
@@ -13890,10 +13936,58 @@ function Library:CreateLoading(LoadingInfo)
     local ProgressTextureSpeed = math.max(0, tonumber(LoadingInfo.ProgressTextureSpeed) or 1.35)
     local ProgressTextureImage = ResolveLoadingImageAsset(LoadingInfo.ProgressTextureImage, "LoadingBarTexture_")
     local ProgressTextureTileSize = LoadingInfo.ProgressTextureTileSize or UDim2.fromOffset(64, 16)
+    local ProgressTextureColor = LoadingInfo.ProgressTextureColor or "WhiteColor"
+    local ProgressTrackTexture = LoadingInfo.ProgressTrackTexture ~= false
+    local HasCustomProgressTrackTexture = LoadingInfo.ProgressTrackTextureImage ~= nil
+    local ProgressTrackTextureImage = ResolveLoadingImageAsset(
+        LoadingInfo.ProgressTrackTextureImage or LoadingInfo.ProgressTextureImage,
+        "LoadingBarTrackTexture_"
+    )
+    local ProgressTrackTextureTransparency = math.clamp(
+        tonumber(LoadingInfo.ProgressTrackTextureTransparency) or math.clamp(ProgressTextureTransparency + 0.28, 0, 0.9),
+        0,
+        1
+    )
+    local ProgressTrackTextureColor = LoadingInfo.ProgressTrackTextureColor or "AccentColor"
+    local ProgressTrackTextureTileSize = LoadingInfo.ProgressTrackTextureTileSize or ProgressTextureTileSize
+    local ProgressBarHeight = tonumber(LoadingInfo.ProgressBarHeight)
+    if not ProgressBarHeight and typeof(LoadingInfo.ProgressBarSize) == "UDim2" and LoadingInfo.ProgressBarSize.Y.Offset ~= 0 then
+        ProgressBarHeight = math.abs(LoadingInfo.ProgressBarSize.Y.Offset)
+    end
+    ProgressBarHeight = math.max(4, ProgressBarHeight or 15)
+    local ProgressBarPadding = math.clamp(tonumber(LoadingInfo.ProgressBarPadding) or 0, 0, math.floor(ProgressBarHeight / 2))
+    local ProgressBarSize = LoadingInfo.ProgressBarSize or UDim2.new(0.7, 0, 0, ProgressBarHeight)
+    local ProgressBarTransparency = math.clamp(tonumber(LoadingInfo.ProgressBarTransparency) or 0, 0, 1)
+    local ProgressFillTransparency = math.clamp(tonumber(LoadingInfo.ProgressFillTransparency) or 0, 0, 1)
+    local ProgressBarColor = LoadingInfo.ProgressBarColor or "MainColor"
+    local ProgressFillColor = LoadingInfo.ProgressFillColor or "AccentColor"
+    local ProgressBarStrokeColor = LoadingInfo.ProgressBarStrokeColor or "OutlineColor"
+    local ProgressBarStrokeTransparency = math.clamp(tonumber(LoadingInfo.ProgressBarStrokeTransparency) or 0, 0, 1)
+    local ProgressBarShadowTransparency = math.clamp(tonumber(LoadingInfo.ProgressBarShadowTransparency) or 0, 0, 1)
+    local UseProgressCap = LoadingInfo.ProgressCap == true
+    local ProgressCapColor = LoadingInfo.ProgressCapColor or "FontColor"
+    local ProgressCapTransparency = math.clamp(tonumber(LoadingInfo.ProgressCapTransparency) or 0.12, 0, 1)
+    local function GetTextureScrollOffset(TileSize, Fallback)
+        if typeof(TileSize) == "UDim2" and TileSize.X.Offset ~= 0 then
+            return math.max(1, math.abs(TileSize.X.Offset))
+        end
+
+        return Fallback
+    end
+
+    local ProgressTextureScrollOffset = math.max(
+        1,
+        tonumber(LoadingInfo.ProgressTextureScrollOffset) or GetTextureScrollOffset(ProgressTextureTileSize, 64)
+    )
+    local ProgressTrackTextureScrollOffset = math.max(
+        1,
+        tonumber(LoadingInfo.ProgressTrackTextureScrollOffset)
+            or GetTextureScrollOffset(ProgressTrackTextureTileSize, ProgressTextureScrollOffset)
+    )
 
     local UseLoadingDecor = LoadingInfo.Decor ~= false and LoadingInfo.DecorImage ~= nil
     local DecorImage = ResolveLoadingImageAsset(LoadingInfo.DecorImage, "LoadingDecor_")
-    local DecorImageTransparency = math.clamp(tonumber(LoadingInfo.DecorImageTransparency) or 0.28, 0, 1)
+    local DecorImageTransparency = math.clamp(tonumber(LoadingInfo.DecorImageTransparency) or 0.18, 0, 1)
     local DecorHeight = math.max(0, tonumber(LoadingInfo.DecorHeight) or 92)
     local DecorPosition = tostring(LoadingInfo.DecorPosition or "Bottom"):lower()
     local DecorScaleType = typeof(LoadingInfo.DecorScaleType) == "EnumItem" and LoadingInfo.DecorScaleType
@@ -13959,6 +14053,30 @@ function Library:CreateLoading(LoadingInfo)
         Library.Corners,
         New("UICorner", { CornerRadius = UDim.new(0, Library.CornerRadius), Parent = MainFrame })
     )
+
+    if LoadingInfo.SurfaceInnerStroke ~= false then
+        local InnerStrokeFrame = New("Frame", {
+            Name = "InnerAccentStroke",
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            Position = UDim2.fromOffset(4, 4),
+            Size = UDim2.new(1, -8, 1, -8),
+            ZIndex = 2,
+            Parent = MainFrame,
+        })
+        table.insert(
+            Library.Corners,
+            New("UICorner", {
+                CornerRadius = UDim.new(0, math.max(2, Library.CornerRadius - 2)),
+                Parent = InnerStrokeFrame,
+            })
+        )
+        Library:AddOutline(InnerStrokeFrame, {
+            Color = LoadingInfo.SurfaceInnerStrokeColor or "AccentColor",
+            Transparency = LoadingInfo.SurfaceInnerStrokeTransparency or 0.62,
+            ShadowTransparency = 1,
+        })
+    end
 
     local SurfaceFill
     if LoadingInfo.SurfaceFill ~= false then
@@ -14581,20 +14699,42 @@ function Library:CreateLoading(LoadingInfo)
 
     --// Progress Bar \\--
     local SliderBar = New("Frame", {
-        BackgroundColor3 = "MainColor",
+        BackgroundColor3 = ProgressBarColor,
+        BackgroundTransparency = ProgressBarTransparency,
         ClipsDescendants = true,
-        Size = UDim2.new(0.7, 0, 0, 15),
+        Size = ProgressBarSize,
         Parent = InnerContent,
     })
-    Library:AddOutline(SliderBar)
+    Library:AddOutline(SliderBar, {
+        Color = ProgressBarStrokeColor,
+        Transparency = ProgressBarStrokeTransparency,
+        ShadowTransparency = ProgressBarShadowTransparency,
+    })
     table.insert(
         Library.Corners,
         New("UICorner", { CornerRadius = UDim.new(0, Library.CornerRadius / 2), Parent = SliderBar })
     )
 
+    local SliderContent = New("Frame", {
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ClipsDescendants = true,
+        Position = UDim2.fromOffset(ProgressBarPadding, ProgressBarPadding),
+        Size = UDim2.new(1, -ProgressBarPadding * 2, 1, -ProgressBarPadding * 2),
+        ZIndex = 2,
+        Parent = SliderBar,
+    })
+    table.insert(
+        Library.Corners,
+        New("UICorner", {
+            CornerRadius = UDim.new(0, math.max(1, (Library.CornerRadius / 2) - ProgressBarPadding)),
+            Parent = SliderContent,
+        })
+    )
+
     local SliderGlow = New("Frame", {
         AnchorPoint = Vector2.new(0.5, 0.5),
-        BackgroundColor3 = "AccentColor",
+        BackgroundColor3 = ProgressFillColor,
         BackgroundTransparency = 0.88,
         BorderSizePixel = 0,
         Position = UDim2.fromScale(0.5, 0.5),
@@ -14607,36 +14747,39 @@ function Library:CreateLoading(LoadingInfo)
         New("UICorner", { CornerRadius = UDim.new(0, Library.CornerRadius), Parent = SliderGlow })
     )
 
-    if UseProgressTexture and ProgressTextureImage then
-        local TrackTexture = New("ImageLabel", {
+    local TrackTexture
+    if UseProgressTexture and ProgressTrackTexture and (ProgressTrackTextureImage or ProgressTextureImage) then
+        local TrackTextureImage = ProgressTrackTextureImage or ProgressTextureImage
+        TrackTexture = New("ImageLabel", {
             BackgroundTransparency = 1,
-            Image = ProgressTextureImage,
-            ImageColor3 = "AccentColor",
-            ImageTransparency = math.clamp(ProgressTextureTransparency + 0.28, 0, 0.9),
+            Image = TrackTextureImage,
+            ImageColor3 = ProgressTrackTextureColor,
+            ImageTransparency = ProgressTrackTextureTransparency,
             Position = UDim2.fromOffset(0, 0),
             ScaleType = Enum.ScaleType.Tile,
-            Size = UDim2.new(1, 64, 1, 0),
-            TileSize = ProgressTextureTileSize,
+            Size = UDim2.new(1, ProgressTrackTextureScrollOffset, 1, 0),
+            TileSize = ProgressTrackTextureTileSize,
             ZIndex = 1,
-            Parent = SliderBar,
+            Parent = SliderContent,
         })
 
         if LoadingInfo.Animated and ProgressTextureSpeed > 0 then
             TweenObject(
                 TrackTexture,
                 TweenInfo.new(ProgressTextureSpeed * 1.4, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1),
-                { Position = UDim2.fromOffset(-64, 0) }
+                { Position = UDim2.fromOffset(-ProgressTrackTextureScrollOffset, 0) }
             )
         end
     end
 
     local SliderFill = New("Frame", {
-        BackgroundColor3 = "AccentColor",
+        BackgroundColor3 = ProgressFillColor,
+        BackgroundTransparency = ProgressFillTransparency,
         BorderSizePixel = 0,
         ClipsDescendants = true,
         Size = UDim2.fromScale(0, 1),
         ZIndex = 2,
-        Parent = SliderBar,
+        Parent = SliderContent,
     })
     table.insert(
         Library.Corners,
@@ -14645,14 +14788,14 @@ function Library:CreateLoading(LoadingInfo)
 
     local SliderCap = New("Frame", {
         AnchorPoint = Vector2.new(0.5, 0.5),
-        BackgroundColor3 = "FontColor",
+        BackgroundColor3 = ProgressCapColor,
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         Position = UDim2.fromScale(0, 0.5),
-        Size = UDim2.fromOffset(3, 17),
+        Size = UDim2.new(0, 3, 1, 2),
         Visible = false,
-        ZIndex = 3,
-        Parent = SliderBar,
+        ZIndex = 4,
+        Parent = SliderContent,
     })
     table.insert(
         Library.Corners,
@@ -14667,6 +14810,7 @@ function Library:CreateLoading(LoadingInfo)
         }),
     })
 
+    local ProgressTexture
     if UseProgressTexture and ProgressTextureImage then
         Library:AddGradient(SliderFill, {
             Rotation = 0,
@@ -14677,14 +14821,14 @@ function Library:CreateLoading(LoadingInfo)
             }),
         })
 
-        local ProgressTexture = New("ImageLabel", {
+        ProgressTexture = New("ImageLabel", {
             BackgroundTransparency = 1,
             Image = ProgressTextureImage,
-            ImageColor3 = "WhiteColor",
+            ImageColor3 = ProgressTextureColor,
             ImageTransparency = ProgressTextureTransparency,
             Position = UDim2.fromOffset(0, 0),
             ScaleType = Enum.ScaleType.Tile,
-            Size = UDim2.new(1, 64, 1, 0),
+            Size = UDim2.new(1, ProgressTextureScrollOffset, 1, 0),
             TileSize = ProgressTextureTileSize,
             ZIndex = 1,
             Parent = SliderFill,
@@ -14694,7 +14838,7 @@ function Library:CreateLoading(LoadingInfo)
             TweenObject(
                 ProgressTexture,
                 TweenInfo.new(ProgressTextureSpeed, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1),
-                { Position = UDim2.fromOffset(-64, 0) }
+                { Position = UDim2.fromOffset(-ProgressTextureScrollOffset, 0) }
             )
         end
     end
@@ -14928,14 +15072,48 @@ function Library:CreateLoading(LoadingInfo)
         LoadingIcon.ImageColor3 = Color
     end
 
+    function Loading:SetProgressTexture(Image)
+        ProgressTextureImage = ResolveLoadingImageAsset(Image, "LoadingBarTexture_")
+        if ProgressTexture then
+            ProgressTexture.Image = ProgressTextureImage or ""
+        end
+
+        if TrackTexture and not HasCustomProgressTrackTexture then
+            TrackTexture.Image = ProgressTextureImage or ""
+        end
+    end
+
+    function Loading:SetProgressTrackTexture(Image)
+        HasCustomProgressTrackTexture = true
+        ProgressTrackTextureImage = ResolveLoadingImageAsset(Image, "LoadingBarTrackTexture_")
+        if TrackTexture then
+            TrackTexture.Image = ProgressTrackTextureImage or ProgressTextureImage or ""
+        end
+    end
+
+    function Loading:SetProgressTextureTransparency(Transparency)
+        ProgressTextureTransparency = math.clamp(tonumber(Transparency) or ProgressTextureTransparency, 0, 1)
+        if ProgressTexture then
+            ProgressTexture.ImageTransparency = ProgressTextureTransparency
+        end
+    end
+
+    function Loading:SetProgressTrackTextureTransparency(Transparency)
+        ProgressTrackTextureTransparency =
+            math.clamp(tonumber(Transparency) or ProgressTrackTextureTransparency, 0, 1)
+        if TrackTexture then
+            TrackTexture.ImageTransparency = ProgressTrackTextureTransparency
+        end
+    end
+
     function Loading:SetCurrentStep(Step)
         Loading.CurrentStep = math.clamp(Step, 0, Loading.TotalSteps)
 
         local Progress = Loading.TotalSteps > 0 and (Loading.CurrentStep / Loading.TotalSteps) or 1
         TweenService:Create(SliderFill, Library.TweenInfo, { Size = UDim2.fromScale(Progress, 1) }):Play()
-        SliderCap.Visible = Progress > 0
+        SliderCap.Visible = UseProgressCap and Progress > 0
         TweenService:Create(SliderCap, Library.TweenInfo, {
-            BackgroundTransparency = Progress > 0 and 0.12 or 1,
+            BackgroundTransparency = (UseProgressCap and Progress > 0) and ProgressCapTransparency or 1,
             Position = UDim2.fromScale(Progress, 0.5),
         }):Play()
         if LoadingInfo.Animated then
