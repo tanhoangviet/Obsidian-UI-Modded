@@ -592,7 +592,7 @@ local Templates = {
         ProgressTextureTileSize = UDim2.fromOffset(192, 16),
         ProgressTrackTexture = true,
         ProgressTrackTextureImage = nil,
-        ProgressTrackTextureTransparency = 0.84,
+        ProgressTrackTextureTransparency = 0.62,
         ProgressTrackTextureColor = "AccentColor",
         ProgressTrackTextureTileSize = nil,
         ProgressBarSize = nil,
@@ -13918,30 +13918,43 @@ function Library:CreateLoading(LoadingInfo)
     local SurfaceFillTransparency = math.clamp(tonumber(LoadingInfo.SurfaceFillTransparency) or SurfaceTransparency, 0, 1)
     local ParticleCount = math.clamp(math.floor(tonumber(LoadingInfo.ParticleCount) or 0), 0, 48)
 
-    local function ResolveLoadingImageAsset(Image, Prefix)
+    local DefaultProgressTextureImage = CustomImageManager.GetAsset("LoadingBarPixelTextureV2")
+    local function ResolveLoadingImageAsset(Image, Prefix, Fallback)
+        if Image == nil or Image == "" then
+            return Fallback
+        end
+
         if tonumber(Image) then
             return string.format("rbxassetid://%s", tostring(Image))
         elseif IsHttpUrl(Image) then
-            return Library:DownloadImage(Image, {
+            local DownloadedImage = Library:DownloadImage(Image, {
                 AssetName = (Prefix or "LoadingImage_") .. HashString(Image),
                 Extension = "png",
             })
+
+            if IsHttpUrl(DownloadedImage) and Fallback then
+                return Fallback
+            end
+
+            return DownloadedImage
         end
 
-        return Image
+        return Image or Fallback
     end
 
     local UseProgressTexture = LoadingInfo.ProgressTexture or LoadingInfo.ProgressShine
     local ProgressTextureTransparency = math.clamp(tonumber(LoadingInfo.ProgressTextureTransparency) or 0.42, 0, 1)
     local ProgressTextureSpeed = math.max(0, tonumber(LoadingInfo.ProgressTextureSpeed) or 1.35)
-    local ProgressTextureImage = ResolveLoadingImageAsset(LoadingInfo.ProgressTextureImage, "LoadingBarTexture_")
+    local ProgressTextureImage =
+        ResolveLoadingImageAsset(LoadingInfo.ProgressTextureImage, "LoadingBarTexture_", DefaultProgressTextureImage)
     local ProgressTextureTileSize = LoadingInfo.ProgressTextureTileSize or UDim2.fromOffset(64, 16)
     local ProgressTextureColor = LoadingInfo.ProgressTextureColor or "WhiteColor"
     local ProgressTrackTexture = LoadingInfo.ProgressTrackTexture ~= false
     local HasCustomProgressTrackTexture = LoadingInfo.ProgressTrackTextureImage ~= nil
     local ProgressTrackTextureImage = ResolveLoadingImageAsset(
         LoadingInfo.ProgressTrackTextureImage or LoadingInfo.ProgressTextureImage,
-        "LoadingBarTrackTexture_"
+        "LoadingBarTrackTexture_",
+        ProgressTextureImage or DefaultProgressTextureImage
     )
     local ProgressTrackTextureTransparency = math.clamp(
         tonumber(LoadingInfo.ProgressTrackTextureTransparency) or math.clamp(ProgressTextureTransparency + 0.28, 0, 0.9),
@@ -14759,7 +14772,7 @@ function Library:CreateLoading(LoadingInfo)
             ScaleType = Enum.ScaleType.Tile,
             Size = UDim2.new(1, ProgressTrackTextureScrollOffset, 1, 0),
             TileSize = ProgressTrackTextureTileSize,
-            ZIndex = 1,
+            ZIndex = 2,
             Parent = SliderContent,
         })
 
@@ -14778,7 +14791,7 @@ function Library:CreateLoading(LoadingInfo)
         BorderSizePixel = 0,
         ClipsDescendants = true,
         Size = UDim2.fromScale(0, 1),
-        ZIndex = 2,
+        ZIndex = 3,
         Parent = SliderContent,
     })
     table.insert(
@@ -14794,7 +14807,7 @@ function Library:CreateLoading(LoadingInfo)
         Position = UDim2.fromScale(0, 0.5),
         Size = UDim2.new(0, 3, 1, 2),
         Visible = false,
-        ZIndex = 4,
+        ZIndex = 5,
         Parent = SliderContent,
     })
     table.insert(
@@ -14830,7 +14843,7 @@ function Library:CreateLoading(LoadingInfo)
             ScaleType = Enum.ScaleType.Tile,
             Size = UDim2.new(1, ProgressTextureScrollOffset, 1, 0),
             TileSize = ProgressTextureTileSize,
-            ZIndex = 1,
+            ZIndex = 4,
             Parent = SliderFill,
         })
 
@@ -14848,7 +14861,7 @@ function Library:CreateLoading(LoadingInfo)
         Size = UDim2.fromScale(1, 1),
         Text = "",
         TextSize = 14,
-        ZIndex = 4,
+        ZIndex = 6,
         Parent = SliderBar,
     })
     New("UIStroke", {
@@ -15073,7 +15086,7 @@ function Library:CreateLoading(LoadingInfo)
     end
 
     function Loading:SetProgressTexture(Image)
-        ProgressTextureImage = ResolveLoadingImageAsset(Image, "LoadingBarTexture_")
+        ProgressTextureImage = ResolveLoadingImageAsset(Image, "LoadingBarTexture_", DefaultProgressTextureImage)
         if ProgressTexture then
             ProgressTexture.Image = ProgressTextureImage or ""
         end
@@ -15085,7 +15098,8 @@ function Library:CreateLoading(LoadingInfo)
 
     function Loading:SetProgressTrackTexture(Image)
         HasCustomProgressTrackTexture = true
-        ProgressTrackTextureImage = ResolveLoadingImageAsset(Image, "LoadingBarTrackTexture_")
+        ProgressTrackTextureImage =
+            ResolveLoadingImageAsset(Image, "LoadingBarTrackTexture_", ProgressTextureImage or DefaultProgressTextureImage)
         if TrackTexture then
             TrackTexture.Image = ProgressTrackTextureImage or ProgressTextureImage or ""
         end
