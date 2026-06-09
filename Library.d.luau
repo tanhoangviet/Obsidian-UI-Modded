@@ -1531,6 +1531,8 @@ export type LoadingInfo = {
     DisableAnimation: boolean?,
     DisableAppearAnimation: boolean?,
     DisableDisappearAnimation: boolean?,
+    EntranceAnimationDuration: number?,
+    ExitAnimationDuration: number?,
     AmbientGradient: boolean?,
     Backdrop: boolean?,
     BackdropTransparency: number?,

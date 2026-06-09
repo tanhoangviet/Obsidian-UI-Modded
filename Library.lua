@@ -183,6 +183,38 @@ local CustomImageManagerAssets = {
         Id = nil,
     },
 
+    LoadingPanelCleanFrame1 = {
+        RobloxId = 0,
+        Path = "Obsidian/assets/LoadingPanelCleanFrame1.png",
+        URL = BaseURL .. "assets/LoadingPanelCleanFrame1.png",
+
+        Id = nil,
+    },
+
+    LoadingPanelCleanFrame2 = {
+        RobloxId = 0,
+        Path = "Obsidian/assets/LoadingPanelCleanFrame2.png",
+        URL = BaseURL .. "assets/LoadingPanelCleanFrame2.png",
+
+        Id = nil,
+    },
+
+    LoadingPanelCleanFrame3 = {
+        RobloxId = 0,
+        Path = "Obsidian/assets/LoadingPanelCleanFrame3.png",
+        URL = BaseURL .. "assets/LoadingPanelCleanFrame3.png",
+
+        Id = nil,
+    },
+
+    LoadingPanelCleanFrame4 = {
+        RobloxId = 0,
+        Path = "Obsidian/assets/LoadingPanelCleanFrame4.png",
+        URL = BaseURL .. "assets/LoadingPanelCleanFrame4.png",
+
+        Id = nil,
+    },
+
     PixelLoadingDecor = {
         RobloxId = 0,
         Path = "Obsidian/assets/PixelLoadingDecor.png",
@@ -656,6 +688,8 @@ local Templates = {
         DisableAnimation = false,
         DisableAppearAnimation = false,
         DisableDisappearAnimation = false,
+        EntranceAnimationDuration = 0.62,
+        ExitAnimationDuration = 0.38,
         AmbientGradient = true,
         Backdrop = false,
         BackdropTransparency = 0.35,
@@ -670,23 +704,23 @@ local Templates = {
         DrawingDecorations = true,
         Drawings = {},
         Decor = true,
-        DecorImage = CustomImageManager.GetAsset("PixelLoadingDecorV2"),
+        DecorImage = CustomImageManager.GetAsset("LoadingPanelCleanFrame1"),
         DecorFrames = {
-            CustomImageManager.GetAsset("LoadingPanelFrame1"),
-            CustomImageManager.GetAsset("LoadingPanelFrame2"),
-            CustomImageManager.GetAsset("LoadingPanelFrame3"),
-            CustomImageManager.GetAsset("LoadingPanelFrame4"),
+            CustomImageManager.GetAsset("LoadingPanelCleanFrame1"),
+            CustomImageManager.GetAsset("LoadingPanelCleanFrame2"),
+            CustomImageManager.GetAsset("LoadingPanelCleanFrame3"),
+            CustomImageManager.GetAsset("LoadingPanelCleanFrame4"),
         },
         DecorFrameRate = 60,
-        DecorImageTransparency = 0.28,
+        DecorImageTransparency = 0.24,
         DecorImageColor3 = "WhiteColor",
         DecorHeight = 92,
         DecorPosition = "Full",
         DecorScaleType = Enum.ScaleType.Crop,
         ProgressShine = true,
         ProgressShineColor = "WhiteColor",
-        ProgressShineTransparency = 0.28,
-        ProgressShineSpeed = 1.15,
+        ProgressShineTransparency = 0.36,
+        ProgressShineSpeed = 1.45,
         ProgressShineWidth = 72,
         ProgressShineRotation = 18,
         ProgressTexture = true,
@@ -700,18 +734,18 @@ local Templates = {
             CustomImageManager.GetAsset("LoadingBarFrame6"),
         },
         ProgressTextureFrameRate = 60,
-        ProgressTextureTransparency = 0,
+        ProgressTextureTransparency = 0.06,
         ProgressTextureColor = "WhiteColor",
-        ProgressTextureSpeed = 1.35,
+        ProgressTextureSpeed = 1.65,
         ProgressTextureTileSize = UDim2.fromOffset(192, 16),
         ProgressTrackTexture = true,
         ProgressTrackTextureImage = nil,
-        ProgressTrackTextureTransparency = 0.48,
+        ProgressTrackTextureTransparency = 0.56,
         ProgressTrackTextureColor = "AccentColor",
         ProgressTrackTextureTileSize = nil,
         GradientTransition = true,
-        GradientTransitionDuration = 0.46,
-        GradientTransitionRotation = 0,
+        GradientTransitionDuration = 0.72,
+        GradientTransitionRotation = 45,
         GradientTransitionStops = {
             { 125, 85, 255, 0 },
             { 125, 85, 255, 0.22 },
@@ -726,8 +760,10 @@ local Templates = {
             NumberSequenceKeypoint.new(0.76, 0.1),
             NumberSequenceKeypoint.new(1, 1),
         }),
-        GradientTransitionInOffset = Vector2.new(-1.2, 0),
-        GradientTransitionOutOffset = Vector2.new(1.2, 0),
+        GradientTransitionInOffset = Vector2.new(-1.2, -1.2),
+        GradientTransitionOutOffset = Vector2.new(1.2, 1.2),
+        GradientTransitionExitInOffset = Vector2.new(1.2, 1.2),
+        GradientTransitionExitOutOffset = Vector2.new(-1.2, -1.2),
         ProgressBarSize = nil,
         ProgressBarHeight = 16,
         ProgressBarPadding = 2,
@@ -14302,7 +14338,7 @@ function Library:CreateLoading(LoadingInfo)
     local UseProgressTexture = LoadingInfo.ProgressTexture or LoadingInfo.ProgressShine
         or typeof(LoadingInfo.ProgressTextureFrames) == "table"
     local ProgressTextureTransparency = math.clamp(tonumber(LoadingInfo.ProgressTextureTransparency) or 0.42, 0, 1)
-    local ProgressTextureSpeed = math.max(0, tonumber(LoadingInfo.ProgressTextureSpeed) or 1.35)
+    local ProgressTextureSpeed = math.max(0, tonumber(LoadingInfo.ProgressTextureSpeed) or 1.65)
     local ProgressTextureImage =
         ResolveLoadingImageAsset(LoadingInfo.ProgressTextureImage, "LoadingBarTexture_", DefaultProgressTextureImage)
     local ProgressTextureFrames =
@@ -14379,7 +14415,7 @@ function Library:CreateLoading(LoadingInfo)
         DecorImage = DecorFrames[1]
     end
     local DecorFrameRate = math.clamp(tonumber(LoadingInfo.DecorFrameRate) or 60, 1, 60)
-    local DecorImageTransparency = math.clamp(tonumber(LoadingInfo.DecorImageTransparency) or 0.18, 0, 1)
+    local DecorImageTransparency = math.clamp(tonumber(LoadingInfo.DecorImageTransparency) or 0.24, 0, 1)
     local DecorHeight = math.max(0, tonumber(LoadingInfo.DecorHeight) or 92)
     local DecorPosition = tostring(LoadingInfo.DecorPosition or "Bottom"):lower()
     local DecorScaleType = typeof(LoadingInfo.DecorScaleType) == "EnumItem" and LoadingInfo.DecorScaleType
@@ -14496,9 +14532,11 @@ function Library:CreateLoading(LoadingInfo)
     table.insert(Library.Scales, MainScale)
     Library.ScalesOffset[MainScale] = Library.IsMobile and 0.2 or 0
 
+    local EntranceAnimationDuration = math.max(0.18, tonumber(LoadingInfo.EntranceAnimationDuration) or 0.62)
+    local ExitAnimationDuration = math.max(0.18, tonumber(LoadingInfo.ExitAnimationDuration) or 0.38)
     local TransitionOverlay
     local TransitionGradient
-    local TransitionDuration = math.max(0.08, tonumber(LoadingInfo.GradientTransitionDuration) or 0.46)
+    local TransitionDuration = math.max(0.08, tonumber(LoadingInfo.GradientTransitionDuration) or 0.72)
     local function PlayLoadingGradientTransition(IsExit, Callback)
         if not (LoadingInfo.Animated and LoadingInfo.GradientTransition) then
             if Callback then
@@ -14531,13 +14569,13 @@ function Library:CreateLoading(LoadingInfo)
             )
             TransitionGradient = Library:AddGradient(TransitionOverlay, {
                 Color = ColorSequenceValue,
-                Rotation = LoadingInfo.GradientTransitionRotation or 0,
+                Rotation = LoadingInfo.GradientTransitionRotation or 45,
                 Transparency = TransparencySequenceValue,
             })
         end
 
-        local StartOffset = LoadingInfo.GradientTransitionInOffset or Vector2.new(-1.2, 0)
-        local EndOffset = LoadingInfo.GradientTransitionOutOffset or Vector2.new(1.2, 0)
+        local StartOffset = LoadingInfo.GradientTransitionInOffset or Vector2.new(-1.2, -1.2)
+        local EndOffset = LoadingInfo.GradientTransitionOutOffset or Vector2.new(1.2, 1.2)
         if IsExit then
             StartOffset = LoadingInfo.GradientTransitionExitInOffset or StartOffset
             EndOffset = LoadingInfo.GradientTransitionExitOutOffset or EndOffset
@@ -14918,14 +14956,14 @@ function Library:CreateLoading(LoadingInfo)
     if UseEntranceAnimation then
         TweenObject(
             MainFrame,
-            TweenInfo.new(0.48, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+            TweenInfo.new(EntranceAnimationDuration, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
             {
                 Position = UDim2.fromScale(0.5, 0.5),
             }
         )
         TweenObject(
             MainScale,
-            TweenInfo.new(0.48, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+            TweenInfo.new(EntranceAnimationDuration, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
             { Scale = TargetScale }
         )
 
@@ -15382,7 +15420,7 @@ function Library:CreateLoading(LoadingInfo)
 
     if LoadingInfo.ProgressShine then
         local ProgressShineWidth = math.max(8, tonumber(LoadingInfo.ProgressShineWidth) or 72)
-        local ProgressShineSpeed = math.max(0.18, tonumber(LoadingInfo.ProgressShineSpeed) or 1.15)
+        local ProgressShineSpeed = math.max(0.18, tonumber(LoadingInfo.ProgressShineSpeed) or 1.45)
         local ProgressShine = New("Frame", {
             AnchorPoint = Vector2.new(0.5, 0.5),
             BackgroundColor3 = LoadingInfo.ProgressShineColor or "WhiteColor",
@@ -15968,7 +16006,7 @@ function Library:CreateLoading(LoadingInfo)
             MainFrame.Active = false
             TweenService:Create(
                 MainFrame,
-                TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+                TweenInfo.new(ExitAnimationDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
                 {
                     BackgroundTransparency = 1,
                     Position = UDim2.new(0.5, 0, 0.5, 14),
@@ -15977,25 +16015,25 @@ function Library:CreateLoading(LoadingInfo)
             if SurfaceFill then
                 TweenService:Create(
                     SurfaceFill,
-                    TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+                    TweenInfo.new(ExitAnimationDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
                     { BackgroundTransparency = 1 }
                 ):Play()
             end
             TweenService:Create(
                 MainScale,
-                TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+                TweenInfo.new(ExitAnimationDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
                 { Scale = TargetScale * 0.96 }
             ):Play()
 
             if Backdrop then
                 TweenService:Create(
                     Backdrop,
-                    TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+                    TweenInfo.new(ExitAnimationDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
                     { BackgroundTransparency = 1 }
                 ):Play()
             end
 
-            local ExitTransitionDelay = math.max(0.2, PlayLoadingGradientTransition(true))
+            local ExitTransitionDelay = math.max(ExitAnimationDuration, PlayLoadingGradientTransition(true))
             task.delay(ExitTransitionDelay, FinishDestroy)
         else
             FinishDestroy()
