@@ -1493,8 +1493,17 @@ export type LoadingGradientStop = {
     [number]: number?,
     Position: number?,
     Time: number?,
+    Point: number?,
     Color: Color3 | string?,
     Color3: Color3?,
+}
+
+export type LoadingTransparencyStop = {
+    [number]: number?,
+    Position: number?,
+    Time: number?,
+    Point: number?,
+    Value: number?,
     Transparency: number?,
     Alpha: number?,
 }
@@ -1558,6 +1567,8 @@ export type LoadingInfo = {
     GradientTransitionDuration: number?,
     GradientTransitionRotation: number?,
     GradientTransitionStops: { LoadingGradientStop }?,
+    GradientTransitionTransparency: NumberSequence | { LoadingTransparencyStop } | number?,
+    GradientTransitionTransparencyStops: { LoadingTransparencyStop }?,
     GradientTransitionInOffset: Vector2?,
     GradientTransitionOutOffset: Vector2?,
     GradientTransitionExitInOffset: Vector2?,

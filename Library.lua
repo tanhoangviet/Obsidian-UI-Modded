@@ -708,12 +708,19 @@ local Templates = {
         GradientTransitionDuration = 0.46,
         GradientTransitionRotation = 0,
         GradientTransitionStops = {
-            { 125, 85, 255, 1 },
-            { 125, 85, 255, 0.08 },
-            { 255, 255, 255, 0.18 },
-            { 65, 210, 255, 0.1 },
+            { 125, 85, 255, 0 },
+            { 125, 85, 255, 0.22 },
+            { 255, 255, 255, 0.5 },
+            { 65, 210, 255, 0.78 },
             { 65, 210, 255, 1 },
         },
+        GradientTransitionTransparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 1),
+            NumberSequenceKeypoint.new(0.24, 0.08),
+            NumberSequenceKeypoint.new(0.5, 0.16),
+            NumberSequenceKeypoint.new(0.76, 0.1),
+            NumberSequenceKeypoint.new(1, 1),
+        }),
         GradientTransitionInOffset = Vector2.new(-1.2, 0),
         GradientTransitionOutOffset = Vector2.new(1.2, 0),
         ProgressBarSize = nil,
@@ -14108,27 +14115,100 @@ function Library:CreateLoading(LoadingInfo)
         return Fallback or Library.Scheme.AccentColor
     end
 
-    local function BuildLoadingGradientSequences(Stops)
-        local ColorKeypoints = {}
-        local TransparencyKeypoints = {}
+    local function NormalizeSequenceKeypoints(Keypoints, DefaultValue)
+        if #Keypoints == 0 then
+            table.insert(Keypoints, NumberSequenceKeypoint.new(0, DefaultValue or 0))
+            table.insert(Keypoints, NumberSequenceKeypoint.new(1, DefaultValue or 0))
+        end
 
-        if typeof(Stops) ~= "table" or #Stops == 0 then
-            Stops = {
-                { 125, 85, 255, 1 },
-                { 125, 85, 255, 0.08 },
-                { 255, 255, 255, 0.16 },
-                { 65, 210, 255, 0.1 },
+        table.sort(Keypoints, function(Left, Right)
+            return Left.Time < Right.Time
+        end)
+
+        if Keypoints[1].Time > 0 then
+            table.insert(Keypoints, 1, NumberSequenceKeypoint.new(0, Keypoints[1].Value))
+        end
+
+        if Keypoints[#Keypoints].Time < 1 then
+            table.insert(Keypoints, NumberSequenceKeypoint.new(1, Keypoints[#Keypoints].Value))
+        end
+
+        return Keypoints
+    end
+
+    local function NormalizeColorKeypoints(Keypoints)
+        if #Keypoints == 0 then
+            table.insert(Keypoints, ColorSequenceKeypoint.new(0, Library.Scheme.AccentColor))
+            table.insert(Keypoints, ColorSequenceKeypoint.new(1, Library.Scheme.BackgroundColor))
+        end
+
+        table.sort(Keypoints, function(Left, Right)
+            return Left.Time < Right.Time
+        end)
+
+        if Keypoints[1].Time > 0 then
+            table.insert(Keypoints, 1, ColorSequenceKeypoint.new(0, Keypoints[1].Value))
+        end
+
+        if Keypoints[#Keypoints].Time < 1 then
+            table.insert(Keypoints, ColorSequenceKeypoint.new(1, Keypoints[#Keypoints].Value))
+        end
+
+        return Keypoints
+    end
+
+    local function BuildLoadingTransparencySequence(Stops)
+        if typeof(Stops) == "NumberSequence" then
+            return Stops
+        elseif typeof(Stops) == "number" then
+            return NumberSequence.new(math.clamp(Stops, 0, 1))
+        end
+
+        local Keypoints = {}
+        if typeof(Stops) == "table" then
+            for Index, Stop in Stops do
+                local Position = (#Stops <= 1) and 0 or ((Index - 1) / (#Stops - 1))
+                local Value = 0
+
+                if typeof(Stop) == "NumberSequenceKeypoint" then
+                    Position = Stop.Time
+                    Value = Stop.Value
+                elseif typeof(Stop) == "table" then
+                    Position = tonumber(Stop.Position or Stop.Time or Stop.Point or Stop[1]) or Position
+                    Value = tonumber(Stop.Value or Stop.Transparency or Stop.Alpha or Stop[2]) or Value
+                elseif tonumber(Stop) then
+                    Value = tonumber(Stop) or Value
+                end
+
+                table.insert(
+                    Keypoints,
+                    NumberSequenceKeypoint.new(math.clamp(Position, 0, 1), math.clamp(Value, 0, 1))
+                )
+            end
+        end
+
+        return NumberSequence.new(NormalizeSequenceKeypoints(Keypoints, 0))
+    end
+
+    local function BuildLoadingGradientSequences(ColorStops, TransparencyStops)
+        local ColorKeypoints = {}
+
+        if typeof(ColorStops) ~= "table" or #ColorStops == 0 then
+            ColorStops = {
+                { 125, 85, 255, 0 },
+                { 125, 85, 255, 0.22 },
+                { 255, 255, 255, 0.5 },
+                { 65, 210, 255, 0.78 },
                 { 65, 210, 255, 1 },
             }
         end
 
-        for Index, Stop in Stops do
-            local Position = (#Stops <= 1) and 0 or ((Index - 1) / (#Stops - 1))
+        for Index, Stop in ColorStops do
+            local Position = (#ColorStops <= 1) and 0 or ((Index - 1) / (#ColorStops - 1))
             local Color = Library.Scheme.AccentColor
-            local Transparency = 0
 
             if typeof(Stop) == "table" then
-                Position = tonumber(Stop.Position or Stop.Time or Stop[5]) or Position
+                Position = tonumber(Stop.Position or Stop.Time or Stop.Point or Stop[4]) or Position
 
                 if typeof(Stop.Color or Stop.Color3) == "Color3" then
                     Color = Stop.Color or Stop.Color3
@@ -14141,27 +14221,15 @@ function Library:CreateLoading(LoadingInfo)
                         math.clamp(math.floor(tonumber(Stop[3]) or 0), 0, 255)
                     )
                 end
-
-                Transparency = math.clamp(tonumber(Stop.Transparency or Stop.Alpha or Stop[4]) or 0, 0, 1)
             elseif typeof(Stop) == "Color3" then
                 Color = Stop
             end
 
             table.insert(ColorKeypoints, ColorSequenceKeypoint.new(math.clamp(Position, 0, 1), Color))
-            table.insert(
-                TransparencyKeypoints,
-                NumberSequenceKeypoint.new(math.clamp(Position, 0, 1), Transparency)
-            )
         end
 
-        table.sort(ColorKeypoints, function(Left, Right)
-            return Left.Time < Right.Time
-        end)
-        table.sort(TransparencyKeypoints, function(Left, Right)
-            return Left.Time < Right.Time
-        end)
-
-        return ColorSequence.new(ColorKeypoints), NumberSequence.new(TransparencyKeypoints)
+        return ColorSequence.new(NormalizeColorKeypoints(ColorKeypoints)),
+            BuildLoadingTransparencySequence(TransparencyStops)
     end
 
     local ImageFrameAnimationTokens = {}
@@ -14406,7 +14474,10 @@ function Library:CreateLoading(LoadingInfo)
 
         if not TransitionOverlay then
             local ColorSequenceValue, TransparencySequenceValue =
-                BuildLoadingGradientSequences(LoadingInfo.GradientTransitionStops)
+                BuildLoadingGradientSequences(
+                    LoadingInfo.GradientTransitionStops,
+                    LoadingInfo.GradientTransitionTransparency or LoadingInfo.GradientTransitionTransparencyStops
+                )
 
             TransitionOverlay = New("Frame", {
                 Name = "GradientTransitionOverlay",

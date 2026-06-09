@@ -296,12 +296,19 @@ LeftGroupBox:AddLiquidGlassButton({
             GradientTransition = true,
             GradientTransitionDuration = 0.5,
             GradientTransitionStops = {
-                { 125, 85, 255, 1 },
-                { 125, 85, 255, 0.08 },
-                { 255, 255, 255, 0.16 },
-                { 65, 210, 255, 0.1 },
+                { 125, 85, 255, 0 },
+                { 125, 85, 255, 0.22 },
+                { 255, 255, 255, 0.5 },
+                { 65, 210, 255, 0.78 },
                 { 65, 210, 255, 1 },
             },
+            GradientTransitionTransparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 1),
+                NumberSequenceKeypoint.new(0.24, 0.08),
+                NumberSequenceKeypoint.new(0.5, 0.16),
+                NumberSequenceKeypoint.new(0.76, 0.1),
+                NumberSequenceKeypoint.new(1, 1),
+            }),
             ProgressCap = false,
             Drawings = {
                 {
