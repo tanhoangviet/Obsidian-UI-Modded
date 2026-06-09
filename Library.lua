@@ -648,9 +648,14 @@ local Templates = {
         LoadingIcon = CustomImageManager.GetAsset("LoadingIcon"),
         LoadingIconColor = nil,
         LoadingIconTweenTime = 1,
+        ShowLoadingIcon = false,
+        CenterIcon = false,
         Animated = true,
         EntranceAnimation = true,
         ExitAnimation = true,
+        DisableAnimation = false,
+        DisableAppearAnimation = false,
+        DisableDisappearAnimation = false,
         AmbientGradient = true,
         Backdrop = false,
         BackdropTransparency = 0.35,
@@ -672,7 +677,7 @@ local Templates = {
             CustomImageManager.GetAsset("LoadingPanelFrame3"),
             CustomImageManager.GetAsset("LoadingPanelFrame4"),
         },
-        DecorFrameRate = 8,
+        DecorFrameRate = 60,
         DecorImageTransparency = 0.28,
         DecorImageColor3 = "WhiteColor",
         DecorHeight = 92,
@@ -694,7 +699,7 @@ local Templates = {
             CustomImageManager.GetAsset("LoadingBarFrame5"),
             CustomImageManager.GetAsset("LoadingBarFrame6"),
         },
-        ProgressTextureFrameRate = 18,
+        ProgressTextureFrameRate = 60,
         ProgressTextureTransparency = 0,
         ProgressTextureColor = "WhiteColor",
         ProgressTextureSpeed = 1.35,
@@ -13983,6 +13988,22 @@ function Library:CreateLoading(LoadingInfo)
     end
 
     LoadingInfo = Library:Validate(LoadingInfo, Templates.Loading)
+    LoadingInfo.Animated = LoadingInfo.Animated ~= false and LoadingInfo.DisableAnimation ~= true
+    if LoadingInfo.AppearAnimation ~= nil then
+        LoadingInfo.EntranceAnimation = LoadingInfo.AppearAnimation
+    end
+    if LoadingInfo.DisappearAnimation ~= nil then
+        LoadingInfo.ExitAnimation = LoadingInfo.DisappearAnimation
+    end
+    if LoadingInfo.DisableAppearAnimation == true then
+        LoadingInfo.EntranceAnimation = false
+    end
+    if LoadingInfo.DisableDisappearAnimation == true then
+        LoadingInfo.ExitAnimation = false
+    end
+    local ShowLoadingIcon = LoadingInfo.ShowLoadingIcon == true
+        or LoadingInfo.CenterIcon == true
+        or LoadingInfo.LoadingIconVisible == true
 
     local Loading = {
         CurrentStep = LoadingInfo.CurrentStep,
@@ -14252,20 +14273,28 @@ function Library:CreateLoading(LoadingInfo)
             return
         end
 
-        FrameRate = math.clamp(tonumber(FrameRate) or 12, 1, 60)
+        FrameRate = math.clamp(tonumber(FrameRate) or 60, 1, 60)
         local Token = TokenKey and ImageFrameAnimationTokens[TokenKey] or nil
 
         task.spawn(function()
             local Index = 1
+            local FrameStep = 1 / FrameRate
+            local Accumulator = 0
+            ImageObject.Image = Frames[Index]
 
             while
                 LoadingAnimations.Running
                 and ImageObject.Parent
                 and (not TokenKey or ImageFrameAnimationTokens[TokenKey] == Token)
             do
+                Accumulator += RunService.RenderStepped:Wait()
+
+                while Accumulator >= FrameStep do
+                    Index = (Index % #Frames) + 1
+                    Accumulator -= FrameStep
+                end
+
                 ImageObject.Image = Frames[Index]
-                Index = (Index % #Frames) + 1
-                task.wait(1 / FrameRate)
             end
         end)
     end
@@ -14281,7 +14310,7 @@ function Library:CreateLoading(LoadingInfo)
     if #ProgressTextureFrames > 0 then
         ProgressTextureImage = ProgressTextureFrames[1]
     end
-    local ProgressTextureFrameRate = math.clamp(tonumber(LoadingInfo.ProgressTextureFrameRate) or 18, 1, 60)
+    local ProgressTextureFrameRate = math.clamp(tonumber(LoadingInfo.ProgressTextureFrameRate) or 60, 1, 60)
     local ProgressTextureTileSize = LoadingInfo.ProgressTextureTileSize or UDim2.fromOffset(64, 16)
     local ProgressTextureColor = LoadingInfo.ProgressTextureColor or "WhiteColor"
     local ProgressTrackTexture = LoadingInfo.ProgressTrackTexture ~= false
@@ -14349,7 +14378,7 @@ function Library:CreateLoading(LoadingInfo)
     if #DecorFrames > 0 then
         DecorImage = DecorFrames[1]
     end
-    local DecorFrameRate = math.clamp(tonumber(LoadingInfo.DecorFrameRate) or 8, 1, 30)
+    local DecorFrameRate = math.clamp(tonumber(LoadingInfo.DecorFrameRate) or 60, 1, 60)
     local DecorImageTransparency = math.clamp(tonumber(LoadingInfo.DecorImageTransparency) or 0.18, 0, 1)
     local DecorHeight = math.max(0, tonumber(LoadingInfo.DecorHeight) or 92)
     local DecorPosition = tostring(LoadingInfo.DecorPosition or "Bottom"):lower()
@@ -14780,7 +14809,7 @@ function Library:CreateLoading(LoadingInfo)
 
     function Loading:SetDecorFrames(Images, FrameRate)
         DecorFrames = ResolveLoadingImageFrames(Images, "LoadingDecorFrame_", DecorImage)
-        DecorFrameRate = math.clamp(tonumber(FrameRate) or DecorFrameRate, 1, 30)
+        DecorFrameRate = math.clamp(tonumber(FrameRate) or DecorFrameRate, 1, 60)
 
         if #DecorFrames > 0 then
             DecorImage = DecorFrames[1]
@@ -14901,7 +14930,9 @@ function Library:CreateLoading(LoadingInfo)
         )
 
     end
-    PlayLoadingGradientTransition(false)
+    if UseEntranceAnimation then
+        PlayLoadingGradientTransition(false)
+    end
 
     if LoadingInfo.Animated and LoadingInfo.AmbientGradient then
         local AmbientGradient = Library:AddGradient(MainFrame, {
@@ -15087,77 +15118,80 @@ function Library:CreateLoading(LoadingInfo)
         Parent = InnerContent,
     })
 
-    local IconHolder = New("Frame", {
-        Name = "IconHolder",
-        BackgroundTransparency = 1,
-        ClipsDescendants = true,
-        Size = UDim2.fromOffset(64, 64),
-        Parent = InnerContent,
-    })
+    local LoadingIcon
+    local RotationTween
+    if ShowLoadingIcon then
+        local IconHolder = New("Frame", {
+            Name = "IconHolder",
+            BackgroundTransparency = 1,
+            ClipsDescendants = true,
+            Size = UDim2.fromOffset(64, 64),
+            Parent = InnerContent,
+        })
 
-    if LoadingInfo.Animated and LoadingInfo.IconPulse then
-        for Index = 1, 2 do
-            local Ring = New("Frame", {
-                AnchorPoint = Vector2.new(0.5, 0.5),
-                BackgroundTransparency = 1,
-                Position = UDim2.fromScale(0.5, 0.5),
-                Size = UDim2.fromScale(0.58, 0.58),
-                ZIndex = 2,
-                Parent = IconHolder,
-            })
-            table.insert(Library.Corners, New("UICorner", { CornerRadius = UDim.new(1, 0), Parent = Ring }))
-            local RingStroke = New("UIStroke", {
-                Color = "AccentColor",
-                Thickness = Index == 1 and 1.5 or 1,
-                Transparency = Index == 1 and 0.28 or 0.55,
-                Parent = Ring,
-            })
-            local Delay = (Index - 1) * 0.45
+        if LoadingInfo.Animated and LoadingInfo.IconPulse then
+            for Index = 1, 2 do
+                local Ring = New("Frame", {
+                    AnchorPoint = Vector2.new(0.5, 0.5),
+                    BackgroundTransparency = 1,
+                    Position = UDim2.fromScale(0.5, 0.5),
+                    Size = UDim2.fromScale(0.58, 0.58),
+                    ZIndex = 2,
+                    Parent = IconHolder,
+                })
+                table.insert(Library.Corners, New("UICorner", { CornerRadius = UDim.new(1, 0), Parent = Ring }))
+                local RingStroke = New("UIStroke", {
+                    Color = "AccentColor",
+                    Thickness = Index == 1 and 1.5 or 1,
+                    Transparency = Index == 1 and 0.28 or 0.55,
+                    Parent = Ring,
+                })
+                local Delay = (Index - 1) * 0.45
+                TweenObject(
+                    Ring,
+                    TweenInfo.new(1.35, Enum.EasingStyle.Sine, Enum.EasingDirection.Out, -1, true, Delay),
+                    { Size = UDim2.fromScale(0.98, 0.98) }
+                )
+                TweenObject(
+                    RingStroke,
+                    TweenInfo.new(1.35, Enum.EasingStyle.Sine, Enum.EasingDirection.Out, -1, true, Delay),
+                    { Transparency = 0.94 }
+                )
+            end
+        end
+
+        local LoaderIcon = Library:GetCustomIcon(LoadingInfo.LoadingIcon)
+        LoadingIcon = New("ImageLabel", {
+            Name = "LoaderIcon",
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            BackgroundTransparency = 1,
+            Position = UDim2.fromScale(0.5, 0.5),
+            Size = UDim2.fromScale(1, 1),
+            Image = LoaderIcon.Url,
+            ImageRectOffset = LoaderIcon.ImageRectOffset,
+            ImageRectSize = LoaderIcon.ImageRectSize,
+            ImageColor3 = LoadingInfo.LoadingIconColor
+                or ((LoadingInfo.LoadingIcon == Templates.Loading.LoadingIcon) and "AccentColor" or "WhiteColor"),
+            ZIndex = 3,
+            Parent = IconHolder,
+        })
+
+        if LoadingInfo.Animated and LoadingInfo.IconPulse then
             TweenObject(
-                Ring,
-                TweenInfo.new(1.35, Enum.EasingStyle.Sine, Enum.EasingDirection.Out, -1, true, Delay),
-                { Size = UDim2.fromScale(0.98, 0.98) }
-            )
-            TweenObject(
-                RingStroke,
-                TweenInfo.new(1.35, Enum.EasingStyle.Sine, Enum.EasingDirection.Out, -1, true, Delay),
-                { Transparency = 0.94 }
+                LoadingIcon,
+                TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+                { Size = UDim2.fromScale(0.9, 0.9) }
             )
         end
-    end
 
-    local LoaderIcon = Library:GetCustomIcon(LoadingInfo.LoadingIcon)
-    local LoadingIcon = New("ImageLabel", {
-        Name = "LoaderIcon",
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        BackgroundTransparency = 1,
-        Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.fromScale(1, 1),
-        Image = LoaderIcon.Url,
-        ImageRectOffset = LoaderIcon.ImageRectOffset,
-        ImageRectSize = LoaderIcon.ImageRectSize,
-        ImageColor3 = LoadingInfo.LoadingIconColor
-            or ((LoadingInfo.LoadingIcon == Templates.Loading.LoadingIcon) and "AccentColor" or "WhiteColor"),
-        ZIndex = 3,
-        Parent = IconHolder,
-    })
-
-    if LoadingInfo.Animated and LoadingInfo.IconPulse then
-        TweenObject(
-            LoadingIcon,
-            TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
-            { Size = UDim2.fromScale(0.9, 0.9) }
-        )
-    end
-
-    local RotationTween
-    if LoadingInfo.LoadingIconTweenTime > 0 then
-        RotationTween = TweenService:Create(
-            LoadingIcon,
-            TweenInfo.new(LoadingInfo.LoadingIconTweenTime, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1),
-            { Rotation = 360 }
-        )
-        RotationTween:Play()
+        if LoadingInfo.LoadingIconTweenTime > 0 then
+            RotationTween = TweenService:Create(
+                LoadingIcon,
+                TweenInfo.new(LoadingInfo.LoadingIconTweenTime, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1),
+                { Rotation = 360 }
+            )
+            RotationTween:Play()
+        end
     end
 
     local MessageLabel = New("TextLabel", {
@@ -15581,6 +15615,11 @@ function Library:CreateLoading(LoadingInfo)
     end
 
     function Loading:SetLoadingIcon(Icon)
+        LoadingInfo.LoadingIcon = Icon
+        if not LoadingIcon then
+            return
+        end
+
         local IconData = Library:GetCustomIcon(Icon)
         LoadingIcon.Image = IconData.Url
         LoadingIcon.ImageRectOffset = IconData.ImageRectOffset
@@ -15588,6 +15627,11 @@ function Library:CreateLoading(LoadingInfo)
     end
 
     function Loading:SetLoadingIconTweenTime(TweenTime)
+        LoadingInfo.LoadingIconTweenTime = TweenTime
+        if not LoadingIcon then
+            return
+        end
+
         if RotationTween then
             RotationTween:Cancel()
             RotationTween:Destroy()
@@ -15606,7 +15650,10 @@ function Library:CreateLoading(LoadingInfo)
     end
 
     function Loading:SetLoadingIconColor(Color)
-        LoadingIcon.ImageColor3 = Color
+        LoadingInfo.LoadingIconColor = Color
+        if LoadingIcon then
+            LoadingIcon.ImageColor3 = Color
+        end
     end
 
     function Loading:SetProgressTexture(Image)
