@@ -14242,7 +14242,13 @@ function Library:CreateLoading(LoadingInfo)
     local function StartImageFrameAnimation(ImageObject, Frames, FrameRate, TokenKey)
         StopImageFrameAnimation(TokenKey)
 
-        if not LoadingInfo.Animated or typeof(ImageObject) ~= "Instance" or #Frames < 2 then
+        if
+            not LoadingInfo.Animated
+            or typeof(ImageObject) ~= "Instance"
+            or not (ImageObject:IsA("ImageLabel") or ImageObject:IsA("ImageButton"))
+            or typeof(Frames) ~= "table"
+            or #Frames < 2
+        then
             return
         end
 
@@ -14582,6 +14588,8 @@ function Library:CreateLoading(LoadingInfo)
 
     function Loading:AddDrawingFrame(Info)
         Info = typeof(Info) == "table" and Info or {}
+        local TextureSource = Info.Image or Info.Texture or Info.Url or Info.URL or Info.Frames or Info.Images
+        local HasTextureSource = TextureSource ~= nil and TextureSource ~= ""
 
         local Drawing = New("Frame", {
             Name = Info.Name or "DrawingFrame",
@@ -14593,6 +14601,7 @@ function Library:CreateLoading(LoadingInfo)
                 1
             ),
             BorderSizePixel = 0,
+            ClipsDescendants = Info.ClipsDescendants == true or HasTextureSource,
             Position = Info.Position or UDim2.fromScale(0, 0),
             Rotation = tonumber(Info.Rotation) or 0,
             Size = Info.Size or UDim2.fromOffset(24, 24),
@@ -14616,9 +14625,42 @@ function Library:CreateLoading(LoadingInfo)
             Library:AddGradient(Drawing, Info.Gradient)
         end
 
-        local DrawingFrames =
-            ResolveLoadingImageFrames(Info.Frames or Info.Images, "LoadingDrawingFrame_", Drawing.Image)
-        StartImageFrameAnimation(Drawing, DrawingFrames, Info.FrameRate or Info.FPS, Drawing)
+        if HasTextureSource then
+            local DrawingTextureFrames = ResolveLoadingImageFrames(TextureSource, "LoadingDrawingFrame_", nil)
+            local DrawingTextureImage = DrawingTextureFrames[1]
+
+            if DrawingTextureImage then
+                local ScaleType = Info.ScaleType
+                if typeof(ScaleType) ~= "EnumItem" then
+                    ScaleType = Info.TileSize and Enum.ScaleType.Tile or Enum.ScaleType.Stretch
+                end
+
+                local DrawingTexture = New("ImageLabel", {
+                    Name = "DrawingFrameTexture",
+                    BackgroundTransparency = 1,
+                    BorderSizePixel = 0,
+                    Image = DrawingTextureImage,
+                    ImageColor3 = Info.ImageColor3 or Info.TextureColor3 or "WhiteColor",
+                    ImageRectOffset = Info.ImageRectOffset or Info.RectOffset or Vector2.zero,
+                    ImageRectSize = Info.ImageRectSize or Info.RectSize or Vector2.zero,
+                    ImageTransparency = math.clamp(
+                        tonumber(Info.ImageTransparency or Info.TextureTransparency) or 0,
+                        0,
+                        1
+                    ),
+                    Position = UDim2.fromScale(0, 0),
+                    ScaleType = ScaleType,
+                    Size = UDim2.fromScale(1, 1),
+                    SliceCenter = Info.SliceCenter,
+                    TileSize = Info.TileSize,
+                    ZIndex = tonumber(Info.TextureZIndex) or Drawing.ZIndex,
+                    Parent = Drawing,
+                })
+
+                AddDrawingCorner(DrawingTexture, Info.TextureCornerRadius or Info.CornerRadius or Info.Radius)
+                StartImageFrameAnimation(DrawingTexture, DrawingTextureFrames, Info.FrameRate or Info.FPS, DrawingTexture)
+            end
+        end
 
         return TrackDrawing(Drawing)
     end
@@ -14658,6 +14700,9 @@ function Library:CreateLoading(LoadingInfo)
         if typeof(Info.Gradient) == "table" then
             Library:AddGradient(Drawing, Info.Gradient)
         end
+
+        local DrawingFrames = ResolveLoadingImageFrames(Info.Frames or Info.Images, "LoadingDrawingImageFrame_", Drawing.Image)
+        StartImageFrameAnimation(Drawing, DrawingFrames, Info.FrameRate or Info.FPS, Drawing)
 
         return TrackDrawing(Drawing)
     end

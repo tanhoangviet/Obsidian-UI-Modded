@@ -1456,6 +1456,7 @@ export type LoadingDrawingFrameInfo = {
     Rotation: number?,
     Size: UDim2?,
     Visible: boolean?,
+    ClipsDescendants: boolean?,
     ZIndex: number?,
     CornerRadius: number?,
     Radius: number?,
@@ -1464,18 +1465,18 @@ export type LoadingDrawingFrameInfo = {
     StrokeThickness: number?,
     StrokeTransparency: number?,
     Gradient: LoadingDrawingGradientInfo?,
-}
-
-export type LoadingDrawingImageInfo = LoadingDrawingFrameInfo & {
-    Type: string?,
     Image: string | number?,
+    Texture: string | number?,
+    Url: string?,
+    URL: string?,
     Frames: { string | number }?,
     Images: { string | number }?,
     FrameRate: number?,
     FPS: number?,
-    Texture: string | number?,
-    Url: string?,
-    URL: string?,
+    TextureColor3: Color3 | string?,
+    TextureTransparency: number?,
+    TextureZIndex: number?,
+    TextureCornerRadius: number?,
     ImageColor3: Color3 | string?,
     ImageTransparency: number?,
     ImageRectOffset: Vector2?,
@@ -1485,6 +1486,10 @@ export type LoadingDrawingImageInfo = LoadingDrawingFrameInfo & {
     ScaleType: Enum.ScaleType?,
     SliceCenter: Rect?,
     TileSize: UDim2?,
+}
+
+export type LoadingDrawingImageInfo = LoadingDrawingFrameInfo & {
+    Type: string?,
 }
 
 export type LoadingDrawingInfo = LoadingDrawingFrameInfo | LoadingDrawingImageInfo | LoadingDrawingGradientInfo
