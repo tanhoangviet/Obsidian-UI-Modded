@@ -95,6 +95,94 @@ local CustomImageManagerAssets = {
         Id = nil,
     },
 
+    LoadingBarImagegenBase = {
+        RobloxId = 0,
+        Path = "Obsidian/assets/LoadingBarImagegenBase.png",
+        URL = BaseURL .. "assets/LoadingBarImagegenBase.png",
+
+        Id = nil,
+    },
+
+    LoadingBarFrame1 = {
+        RobloxId = 0,
+        Path = "Obsidian/assets/LoadingBarFrame1.png",
+        URL = BaseURL .. "assets/LoadingBarFrame1.png",
+
+        Id = nil,
+    },
+
+    LoadingBarFrame2 = {
+        RobloxId = 0,
+        Path = "Obsidian/assets/LoadingBarFrame2.png",
+        URL = BaseURL .. "assets/LoadingBarFrame2.png",
+
+        Id = nil,
+    },
+
+    LoadingBarFrame3 = {
+        RobloxId = 0,
+        Path = "Obsidian/assets/LoadingBarFrame3.png",
+        URL = BaseURL .. "assets/LoadingBarFrame3.png",
+
+        Id = nil,
+    },
+
+    LoadingBarFrame4 = {
+        RobloxId = 0,
+        Path = "Obsidian/assets/LoadingBarFrame4.png",
+        URL = BaseURL .. "assets/LoadingBarFrame4.png",
+
+        Id = nil,
+    },
+
+    LoadingBarFrame5 = {
+        RobloxId = 0,
+        Path = "Obsidian/assets/LoadingBarFrame5.png",
+        URL = BaseURL .. "assets/LoadingBarFrame5.png",
+
+        Id = nil,
+    },
+
+    LoadingBarFrame6 = {
+        RobloxId = 0,
+        Path = "Obsidian/assets/LoadingBarFrame6.png",
+        URL = BaseURL .. "assets/LoadingBarFrame6.png",
+
+        Id = nil,
+    },
+
+    LoadingPanelFrame1 = {
+        RobloxId = 0,
+        Path = "Obsidian/assets/LoadingPanelFrame1.png",
+        URL = BaseURL .. "assets/LoadingPanelFrame1.png",
+
+        Id = nil,
+    },
+
+    LoadingPanelFrame2 = {
+        RobloxId = 0,
+        Path = "Obsidian/assets/LoadingPanelFrame2.png",
+        URL = BaseURL .. "assets/LoadingPanelFrame2.png",
+
+        Id = nil,
+    },
+
+    LoadingPanelFrame3 = {
+        RobloxId = 0,
+        Path = "Obsidian/assets/LoadingPanelFrame3.png",
+        URL = BaseURL .. "assets/LoadingPanelFrame3.png",
+
+        Id = nil,
+    },
+
+    LoadingPanelFrame4 = {
+        RobloxId = 0,
+        Path = "Obsidian/assets/LoadingPanelFrame4.png",
+        URL = BaseURL .. "assets/LoadingPanelFrame4.png",
+
+        Id = nil,
+    },
+
     PixelLoadingDecor = {
         RobloxId = 0,
         Path = "Obsidian/assets/PixelLoadingDecor.png",
@@ -578,23 +666,56 @@ local Templates = {
         Drawings = {},
         Decor = true,
         DecorImage = CustomImageManager.GetAsset("PixelLoadingDecorV2"),
+        DecorFrames = {
+            CustomImageManager.GetAsset("LoadingPanelFrame1"),
+            CustomImageManager.GetAsset("LoadingPanelFrame2"),
+            CustomImageManager.GetAsset("LoadingPanelFrame3"),
+            CustomImageManager.GetAsset("LoadingPanelFrame4"),
+        },
+        DecorFrameRate = 8,
         DecorImageTransparency = 0.28,
         DecorImageColor3 = "WhiteColor",
         DecorHeight = 92,
         DecorPosition = "Full",
         DecorScaleType = Enum.ScaleType.Crop,
-        ProgressShine = false,
+        ProgressShine = true,
+        ProgressShineColor = "WhiteColor",
+        ProgressShineTransparency = 0.28,
+        ProgressShineSpeed = 1.15,
+        ProgressShineWidth = 72,
+        ProgressShineRotation = 18,
         ProgressTexture = true,
-        ProgressTextureImage = CustomImageManager.GetAsset("LoadingBarPixelTextureV2"),
-        ProgressTextureTransparency = 0.02,
+        ProgressTextureImage = CustomImageManager.GetAsset("LoadingBarFrame1"),
+        ProgressTextureFrames = {
+            CustomImageManager.GetAsset("LoadingBarFrame1"),
+            CustomImageManager.GetAsset("LoadingBarFrame2"),
+            CustomImageManager.GetAsset("LoadingBarFrame3"),
+            CustomImageManager.GetAsset("LoadingBarFrame4"),
+            CustomImageManager.GetAsset("LoadingBarFrame5"),
+            CustomImageManager.GetAsset("LoadingBarFrame6"),
+        },
+        ProgressTextureFrameRate = 18,
+        ProgressTextureTransparency = 0,
         ProgressTextureColor = "WhiteColor",
         ProgressTextureSpeed = 1.35,
         ProgressTextureTileSize = UDim2.fromOffset(192, 16),
         ProgressTrackTexture = true,
         ProgressTrackTextureImage = nil,
-        ProgressTrackTextureTransparency = 0.62,
+        ProgressTrackTextureTransparency = 0.48,
         ProgressTrackTextureColor = "AccentColor",
         ProgressTrackTextureTileSize = nil,
+        GradientTransition = true,
+        GradientTransitionDuration = 0.46,
+        GradientTransitionRotation = 0,
+        GradientTransitionStops = {
+            { 125, 85, 255, 1 },
+            { 125, 85, 255, 0.08 },
+            { 255, 255, 255, 0.18 },
+            { 65, 210, 255, 0.1 },
+            { 65, 210, 255, 1 },
+        },
+        GradientTransitionInOffset = Vector2.new(-1.2, 0),
+        GradientTransitionOutOffset = Vector2.new(1.2, 0),
         ProgressBarSize = nil,
         ProgressBarHeight = 16,
         ProgressBarPadding = 2,
@@ -13942,11 +14063,151 @@ function Library:CreateLoading(LoadingInfo)
         return Image or Fallback
     end
 
+    local function ResolveLoadingImageFrames(Images, Prefix, Fallback)
+        local Frames = {}
+
+        if typeof(Images) == "table" then
+            for Index, Image in Images do
+                local ResolvedImage = ResolveLoadingImageAsset(Image, string.format("%s%d_", Prefix or "LoadingFrame_", Index))
+                if ResolvedImage and ResolvedImage ~= "" then
+                    table.insert(Frames, ResolvedImage)
+                end
+            end
+        elseif Images then
+            local ResolvedImage = ResolveLoadingImageAsset(Images, Prefix or "LoadingFrame_")
+            if ResolvedImage and ResolvedImage ~= "" then
+                table.insert(Frames, ResolvedImage)
+            end
+        end
+
+        if #Frames == 0 and Fallback then
+            if typeof(Fallback) == "table" then
+                for _, Image in Fallback do
+                    if Image and Image ~= "" then
+                        table.insert(Frames, Image)
+                    end
+                end
+            elseif Fallback ~= "" then
+                table.insert(Frames, Fallback)
+            end
+        end
+
+        return Frames
+    end
+
+    local function ResolveLoadingColor(Value, Fallback)
+        local SchemeValue = GetSchemeValue(Value)
+        if SchemeValue then
+            return SchemeValue
+        end
+
+        if typeof(Value) == "Color3" then
+            return Value
+        end
+
+        return Fallback or Library.Scheme.AccentColor
+    end
+
+    local function BuildLoadingGradientSequences(Stops)
+        local ColorKeypoints = {}
+        local TransparencyKeypoints = {}
+
+        if typeof(Stops) ~= "table" or #Stops == 0 then
+            Stops = {
+                { 125, 85, 255, 1 },
+                { 125, 85, 255, 0.08 },
+                { 255, 255, 255, 0.16 },
+                { 65, 210, 255, 0.1 },
+                { 65, 210, 255, 1 },
+            }
+        end
+
+        for Index, Stop in Stops do
+            local Position = (#Stops <= 1) and 0 or ((Index - 1) / (#Stops - 1))
+            local Color = Library.Scheme.AccentColor
+            local Transparency = 0
+
+            if typeof(Stop) == "table" then
+                Position = tonumber(Stop.Position or Stop.Time or Stop[5]) or Position
+
+                if typeof(Stop.Color or Stop.Color3) == "Color3" then
+                    Color = Stop.Color or Stop.Color3
+                elseif Stop.Color or Stop.Color3 then
+                    Color = ResolveLoadingColor(Stop.Color or Stop.Color3, Color)
+                elseif tonumber(Stop[1]) and tonumber(Stop[2]) and tonumber(Stop[3]) then
+                    Color = Color3.fromRGB(
+                        math.clamp(math.floor(tonumber(Stop[1]) or 0), 0, 255),
+                        math.clamp(math.floor(tonumber(Stop[2]) or 0), 0, 255),
+                        math.clamp(math.floor(tonumber(Stop[3]) or 0), 0, 255)
+                    )
+                end
+
+                Transparency = math.clamp(tonumber(Stop.Transparency or Stop.Alpha or Stop[4]) or 0, 0, 1)
+            elseif typeof(Stop) == "Color3" then
+                Color = Stop
+            end
+
+            table.insert(ColorKeypoints, ColorSequenceKeypoint.new(math.clamp(Position, 0, 1), Color))
+            table.insert(
+                TransparencyKeypoints,
+                NumberSequenceKeypoint.new(math.clamp(Position, 0, 1), Transparency)
+            )
+        end
+
+        table.sort(ColorKeypoints, function(Left, Right)
+            return Left.Time < Right.Time
+        end)
+        table.sort(TransparencyKeypoints, function(Left, Right)
+            return Left.Time < Right.Time
+        end)
+
+        return ColorSequence.new(ColorKeypoints), NumberSequence.new(TransparencyKeypoints)
+    end
+
+    local ImageFrameAnimationTokens = {}
+    local function StopImageFrameAnimation(TokenKey)
+        if TokenKey then
+            ImageFrameAnimationTokens[TokenKey] = (ImageFrameAnimationTokens[TokenKey] or 0) + 1
+        end
+    end
+
+    local function StartImageFrameAnimation(ImageObject, Frames, FrameRate, TokenKey)
+        StopImageFrameAnimation(TokenKey)
+
+        if not LoadingInfo.Animated or typeof(ImageObject) ~= "Instance" or #Frames < 2 then
+            return
+        end
+
+        FrameRate = math.clamp(tonumber(FrameRate) or 12, 1, 60)
+        local Token = TokenKey and ImageFrameAnimationTokens[TokenKey] or nil
+
+        task.spawn(function()
+            local Index = 1
+
+            while
+                LoadingAnimations.Running
+                and ImageObject.Parent
+                and (not TokenKey or ImageFrameAnimationTokens[TokenKey] == Token)
+            do
+                ImageObject.Image = Frames[Index]
+                Index = (Index % #Frames) + 1
+                task.wait(1 / FrameRate)
+            end
+        end)
+    end
+
     local UseProgressTexture = LoadingInfo.ProgressTexture or LoadingInfo.ProgressShine
+        or typeof(LoadingInfo.ProgressTextureFrames) == "table"
     local ProgressTextureTransparency = math.clamp(tonumber(LoadingInfo.ProgressTextureTransparency) or 0.42, 0, 1)
     local ProgressTextureSpeed = math.max(0, tonumber(LoadingInfo.ProgressTextureSpeed) or 1.35)
     local ProgressTextureImage =
         ResolveLoadingImageAsset(LoadingInfo.ProgressTextureImage, "LoadingBarTexture_", DefaultProgressTextureImage)
+    local ProgressTextureFrames =
+        ResolveLoadingImageFrames(LoadingInfo.ProgressTextureFrames, "LoadingBarFrame_", ProgressTextureImage)
+    if #ProgressTextureFrames > 0 then
+        ProgressTextureImage = ProgressTextureFrames[1]
+    end
+    local ProgressTextureFrameRate = math.clamp(tonumber(LoadingInfo.ProgressTextureFrameRate) or 18, 1, 60)
     local ProgressTextureTileSize = LoadingInfo.ProgressTextureTileSize or UDim2.fromOffset(64, 16)
     local ProgressTextureColor = LoadingInfo.ProgressTextureColor or "WhiteColor"
     local ProgressTrackTexture = LoadingInfo.ProgressTrackTexture ~= false
@@ -13956,6 +14217,16 @@ function Library:CreateLoading(LoadingInfo)
         "LoadingBarTrackTexture_",
         ProgressTextureImage or DefaultProgressTextureImage
     )
+    local ProgressTrackTextureFrames = ResolveLoadingImageFrames(
+        LoadingInfo.ProgressTrackTextureFrames,
+        "LoadingBarTrackFrame_",
+        HasCustomProgressTrackTexture and ProgressTrackTextureImage or ProgressTextureFrames
+    )
+    if #ProgressTrackTextureFrames > 0 then
+        ProgressTrackTextureImage = ProgressTrackTextureFrames[1]
+    end
+    local ProgressTrackTextureFrameRate =
+        math.clamp(tonumber(LoadingInfo.ProgressTrackTextureFrameRate) or ProgressTextureFrameRate, 1, 60)
     local ProgressTrackTextureTransparency = math.clamp(
         tonumber(LoadingInfo.ProgressTrackTextureTransparency) or math.clamp(ProgressTextureTransparency + 0.28, 0, 0.9),
         0,
@@ -14000,6 +14271,11 @@ function Library:CreateLoading(LoadingInfo)
 
     local UseLoadingDecor = LoadingInfo.Decor ~= false and LoadingInfo.DecorImage ~= nil
     local DecorImage = ResolveLoadingImageAsset(LoadingInfo.DecorImage, "LoadingDecor_")
+    local DecorFrames = ResolveLoadingImageFrames(LoadingInfo.DecorFrames, "LoadingDecorFrame_", DecorImage)
+    if #DecorFrames > 0 then
+        DecorImage = DecorFrames[1]
+    end
+    local DecorFrameRate = math.clamp(tonumber(LoadingInfo.DecorFrameRate) or 8, 1, 30)
     local DecorImageTransparency = math.clamp(tonumber(LoadingInfo.DecorImageTransparency) or 0.18, 0, 1)
     local DecorHeight = math.max(0, tonumber(LoadingInfo.DecorHeight) or 92)
     local DecorPosition = tostring(LoadingInfo.DecorPosition or "Bottom"):lower()
@@ -14117,6 +14393,78 @@ function Library:CreateLoading(LoadingInfo)
     table.insert(Library.Scales, MainScale)
     Library.ScalesOffset[MainScale] = Library.IsMobile and 0.2 or 0
 
+    local TransitionOverlay
+    local TransitionGradient
+    local TransitionDuration = math.max(0.08, tonumber(LoadingInfo.GradientTransitionDuration) or 0.46)
+    local function PlayLoadingGradientTransition(IsExit, Callback)
+        if not (LoadingInfo.Animated and LoadingInfo.GradientTransition) then
+            if Callback then
+                Callback()
+            end
+            return 0
+        end
+
+        if not TransitionOverlay then
+            local ColorSequenceValue, TransparencySequenceValue =
+                BuildLoadingGradientSequences(LoadingInfo.GradientTransitionStops)
+
+            TransitionOverlay = New("Frame", {
+                Name = "GradientTransitionOverlay",
+                BackgroundColor3 = "WhiteColor",
+                BackgroundTransparency = 0,
+                BorderSizePixel = 0,
+                ClipsDescendants = true,
+                Size = UDim2.fromScale(1, 1),
+                Visible = false,
+                ZIndex = 950,
+                Parent = MainFrame,
+            })
+            table.insert(
+                Library.Corners,
+                New("UICorner", { CornerRadius = UDim.new(0, Library.CornerRadius), Parent = TransitionOverlay })
+            )
+            TransitionGradient = Library:AddGradient(TransitionOverlay, {
+                Color = ColorSequenceValue,
+                Rotation = LoadingInfo.GradientTransitionRotation or 0,
+                Transparency = TransparencySequenceValue,
+            })
+        end
+
+        local StartOffset = LoadingInfo.GradientTransitionInOffset or Vector2.new(-1.2, 0)
+        local EndOffset = LoadingInfo.GradientTransitionOutOffset or Vector2.new(1.2, 0)
+        if IsExit then
+            StartOffset = LoadingInfo.GradientTransitionExitInOffset or StartOffset
+            EndOffset = LoadingInfo.GradientTransitionExitOutOffset or EndOffset
+        end
+
+        TransitionOverlay.Visible = true
+        TransitionOverlay.BackgroundTransparency = 0
+        TransitionGradient.Offset = StartOffset
+
+        local TransitionTween = TweenService:Create(
+            TransitionGradient,
+            TweenInfo.new(
+                TransitionDuration,
+                Enum.EasingStyle.Quint,
+                IsExit and Enum.EasingDirection.In or Enum.EasingDirection.Out
+            ),
+            { Offset = EndOffset }
+        )
+        TransitionTween:Play()
+
+        task.delay(TransitionDuration, function()
+            if not IsExit and TransitionOverlay and TransitionOverlay.Parent then
+                TransitionOverlay.Visible = false
+            end
+
+            if Callback then
+                Callback()
+            end
+        end)
+
+        return TransitionDuration
+    end
+
     local DrawingLayer = New("Frame", {
         Name = "LoadingDrawingLayer",
         BackgroundTransparency = 1,
@@ -14196,6 +14544,10 @@ function Library:CreateLoading(LoadingInfo)
         if typeof(Info.Gradient) == "table" then
             Library:AddGradient(Drawing, Info.Gradient)
         end
+
+        local DrawingFrames =
+            ResolveLoadingImageFrames(Info.Frames or Info.Images, "LoadingDrawingFrame_", Drawing.Image)
+        StartImageFrameAnimation(Drawing, DrawingFrames, Info.FrameRate or Info.FPS, Drawing)
 
         return TrackDrawing(Drawing)
     end
@@ -14293,17 +14645,36 @@ function Library:CreateLoading(LoadingInfo)
             Size = Size,
             ZIndex = 1,
         })
+        StartImageFrameAnimation(LoadingDecor, DecorFrames, DecorFrameRate, "Decor")
 
         return LoadingDecor
     end
 
     function Loading:SetDecorImage(Image)
         DecorImage = ResolveLoadingImageAsset(Image, "LoadingDecor_")
+        DecorFrames = { DecorImage }
+        StopImageFrameAnimation("Decor")
         UseLoadingDecor = true
 
         local Decor = CreateLoadingDecor()
         if Decor then
             Decor.Image = DecorImage
+        end
+    end
+
+    function Loading:SetDecorFrames(Images, FrameRate)
+        DecorFrames = ResolveLoadingImageFrames(Images, "LoadingDecorFrame_", DecorImage)
+        DecorFrameRate = math.clamp(tonumber(FrameRate) or DecorFrameRate, 1, 30)
+
+        if #DecorFrames > 0 then
+            DecorImage = DecorFrames[1]
+        end
+
+        UseLoadingDecor = true
+        local Decor = CreateLoadingDecor()
+        if Decor then
+            Decor.Image = DecorImage
+            StartImageFrameAnimation(Decor, DecorFrames, DecorFrameRate, "Decor")
         end
     end
 
@@ -14414,6 +14785,7 @@ function Library:CreateLoading(LoadingInfo)
         )
 
     end
+    PlayLoadingGradientTransition(false)
 
     if LoadingInfo.Animated and LoadingInfo.AmbientGradient then
         local AmbientGradient = Library:AddGradient(MainFrame, {
@@ -14783,6 +15155,7 @@ function Library:CreateLoading(LoadingInfo)
                 { Position = UDim2.fromOffset(-ProgressTrackTextureScrollOffset, 0) }
             )
         end
+        StartImageFrameAnimation(TrackTexture, ProgressTrackTextureFrames, ProgressTrackTextureFrameRate, "ProgressTrack")
     end
 
     local SliderFill = New("Frame", {
@@ -14852,6 +15225,41 @@ function Library:CreateLoading(LoadingInfo)
                 ProgressTexture,
                 TweenInfo.new(ProgressTextureSpeed, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1),
                 { Position = UDim2.fromOffset(-ProgressTextureScrollOffset, 0) }
+            )
+        end
+        StartImageFrameAnimation(ProgressTexture, ProgressTextureFrames, ProgressTextureFrameRate, "ProgressTexture")
+    end
+
+    if LoadingInfo.ProgressShine then
+        local ProgressShineWidth = math.max(8, tonumber(LoadingInfo.ProgressShineWidth) or 72)
+        local ProgressShineSpeed = math.max(0.18, tonumber(LoadingInfo.ProgressShineSpeed) or 1.15)
+        local ProgressShine = New("Frame", {
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            BackgroundColor3 = LoadingInfo.ProgressShineColor or "WhiteColor",
+            BackgroundTransparency = math.clamp(tonumber(LoadingInfo.ProgressShineTransparency) or 0.28, 0, 1),
+            BorderSizePixel = 0,
+            Position = UDim2.new(0, -ProgressShineWidth, 0.5, 0),
+            Rotation = tonumber(LoadingInfo.ProgressShineRotation) or 18,
+            Size = UDim2.new(0, ProgressShineWidth, 1, 10),
+            ZIndex = 5,
+            Parent = SliderContent,
+        })
+        Library:AddGradient(ProgressShine, {
+            Rotation = 0,
+            Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 1),
+                NumberSequenceKeypoint.new(0.32, 0.7),
+                NumberSequenceKeypoint.new(0.5, 0.08),
+                NumberSequenceKeypoint.new(0.68, 0.7),
+                NumberSequenceKeypoint.new(1, 1),
+            }),
+        })
+
+        if LoadingInfo.Animated then
+            TweenObject(
+                ProgressShine,
+                TweenInfo.new(ProgressShineSpeed, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1),
+                { Position = UDim2.new(1, ProgressShineWidth, 0.5, 0) }
             )
         end
     end
@@ -15087,12 +15495,37 @@ function Library:CreateLoading(LoadingInfo)
 
     function Loading:SetProgressTexture(Image)
         ProgressTextureImage = ResolveLoadingImageAsset(Image, "LoadingBarTexture_", DefaultProgressTextureImage)
+        ProgressTextureFrames = { ProgressTextureImage }
+        StopImageFrameAnimation("ProgressTexture")
         if ProgressTexture then
             ProgressTexture.Image = ProgressTextureImage or ""
         end
 
         if TrackTexture and not HasCustomProgressTrackTexture then
             TrackTexture.Image = ProgressTextureImage or ""
+            ProgressTrackTextureFrames = { ProgressTextureImage }
+            StopImageFrameAnimation("ProgressTrack")
+        end
+    end
+
+    function Loading:SetProgressTextureFrames(Images, FrameRate)
+        ProgressTextureFrames = ResolveLoadingImageFrames(Images, "LoadingBarFrame_", ProgressTextureImage)
+        ProgressTextureFrameRate = math.clamp(tonumber(FrameRate) or ProgressTextureFrameRate, 1, 60)
+
+        if #ProgressTextureFrames > 0 then
+            ProgressTextureImage = ProgressTextureFrames[1]
+        end
+
+        if ProgressTexture then
+            ProgressTexture.Image = ProgressTextureImage or ""
+            StartImageFrameAnimation(ProgressTexture, ProgressTextureFrames, ProgressTextureFrameRate, "ProgressTexture")
+        end
+
+        if TrackTexture and not HasCustomProgressTrackTexture then
+            ProgressTrackTextureFrames = ProgressTextureFrames
+            ProgressTrackTextureImage = ProgressTextureImage
+            TrackTexture.Image = ProgressTextureImage or ""
+            StartImageFrameAnimation(TrackTexture, ProgressTrackTextureFrames, ProgressTrackTextureFrameRate, "ProgressTrack")
         end
     end
 
@@ -15100,8 +15533,26 @@ function Library:CreateLoading(LoadingInfo)
         HasCustomProgressTrackTexture = true
         ProgressTrackTextureImage =
             ResolveLoadingImageAsset(Image, "LoadingBarTrackTexture_", ProgressTextureImage or DefaultProgressTextureImage)
+        ProgressTrackTextureFrames = { ProgressTrackTextureImage }
+        StopImageFrameAnimation("ProgressTrack")
         if TrackTexture then
             TrackTexture.Image = ProgressTrackTextureImage or ProgressTextureImage or ""
+        end
+    end
+
+    function Loading:SetProgressTrackTextureFrames(Images, FrameRate)
+        HasCustomProgressTrackTexture = true
+        ProgressTrackTextureFrames =
+            ResolveLoadingImageFrames(Images, "LoadingBarTrackFrame_", ProgressTrackTextureImage or ProgressTextureImage)
+        ProgressTrackTextureFrameRate = math.clamp(tonumber(FrameRate) or ProgressTrackTextureFrameRate, 1, 60)
+
+        if #ProgressTrackTextureFrames > 0 then
+            ProgressTrackTextureImage = ProgressTrackTextureFrames[1]
+        end
+
+        if TrackTexture then
+            TrackTexture.Image = ProgressTrackTextureImage or ProgressTextureImage or ""
+            StartImageFrameAnimation(TrackTexture, ProgressTrackTextureFrames, ProgressTrackTextureFrameRate, "ProgressTrack")
         end
     end
 
@@ -15381,7 +15832,8 @@ function Library:CreateLoading(LoadingInfo)
                 ):Play()
             end
 
-            task.delay(0.2, FinishDestroy)
+            local ExitTransitionDelay = math.max(0.2, PlayLoadingGradientTransition(true))
+            task.delay(ExitTransitionDelay, FinishDestroy)
         else
             FinishDestroy()
         end
