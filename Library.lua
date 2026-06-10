@@ -732,10 +732,10 @@ local Templates = {
         DecorScaleType = Enum.ScaleType.Crop,
         ProgressShine = true,
         ProgressShineColor = "WhiteColor",
-        ProgressShineTransparency = 0.36,
-        ProgressShineSpeed = 1.45,
-        ProgressShineWidth = 72,
-        ProgressShineRotation = 18,
+        ProgressShineTransparency = 0.58,
+        ProgressShineSpeed = 1.8,
+        ProgressShineWidth = 56,
+        ProgressShineRotation = 12,
         ProgressTexture = true,
         ProgressTextureImage = CustomImageManager.GetAsset("LoadingBarStaticTexture"),
         ProgressTextureFrames = {
@@ -785,6 +785,12 @@ local Templates = {
         ProgressCap = false,
         ProgressCapColor = "WhiteColor",
         ProgressCapTransparency = 0.16,
+        SmoothProgress = true,
+        SmoothProgressDuration = nil,
+        SmoothProgressDefaultDuration = 0.58,
+        SmoothProgressMinDuration = 0.26,
+        SmoothProgressMaxDuration = 1.45,
+        SmoothProgressCadenceScale = 0.86,
         Particles = false,
         ParticleCount = 10,
 
@@ -14398,6 +14404,16 @@ function Library:CreateLoading(LoadingInfo)
     local UseProgressCap = LoadingInfo.ProgressCap == true
     local ProgressCapColor = LoadingInfo.ProgressCapColor or "FontColor"
     local ProgressCapTransparency = math.clamp(tonumber(LoadingInfo.ProgressCapTransparency) or 0.12, 0, 1)
+    local SmoothProgress = LoadingInfo.SmoothProgress ~= false
+    local SmoothProgressDuration = tonumber(LoadingInfo.SmoothProgressDuration)
+    local SmoothProgressDefaultDuration =
+        math.max(0.05, tonumber(LoadingInfo.SmoothProgressDefaultDuration) or 0.58)
+    local SmoothProgressMinDuration = math.max(0.02, tonumber(LoadingInfo.SmoothProgressMinDuration) or 0.26)
+    local SmoothProgressMaxDuration = math.max(
+        SmoothProgressMinDuration,
+        tonumber(LoadingInfo.SmoothProgressMaxDuration) or 1.45
+    )
+    local SmoothProgressCadenceScale = math.clamp(tonumber(LoadingInfo.SmoothProgressCadenceScale) or 0.86, 0.1, 2)
     local function GetTextureScrollOffset(TileSize, Fallback)
         if typeof(TileSize) == "UDim2" and TileSize.X.Offset ~= 0 then
             return math.max(1, math.abs(TileSize.X.Offset))
@@ -15427,18 +15443,18 @@ function Library:CreateLoading(LoadingInfo)
     end
 
     if LoadingInfo.ProgressShine then
-        local ProgressShineWidth = math.max(8, tonumber(LoadingInfo.ProgressShineWidth) or 72)
-        local ProgressShineSpeed = math.max(0.18, tonumber(LoadingInfo.ProgressShineSpeed) or 1.45)
+        local ProgressShineWidth = math.max(8, tonumber(LoadingInfo.ProgressShineWidth) or 56)
+        local ProgressShineSpeed = math.max(0.18, tonumber(LoadingInfo.ProgressShineSpeed) or 1.8)
         local ProgressShine = New("Frame", {
             AnchorPoint = Vector2.new(0.5, 0.5),
             BackgroundColor3 = LoadingInfo.ProgressShineColor or "WhiteColor",
-            BackgroundTransparency = math.clamp(tonumber(LoadingInfo.ProgressShineTransparency) or 0.36, 0, 1),
+            BackgroundTransparency = math.clamp(tonumber(LoadingInfo.ProgressShineTransparency) or 0.58, 0, 1),
             BorderSizePixel = 0,
             Position = UDim2.new(0, -ProgressShineWidth, 0.5, 0),
-            Rotation = tonumber(LoadingInfo.ProgressShineRotation) or 18,
+            Rotation = tonumber(LoadingInfo.ProgressShineRotation) or 12,
             Size = UDim2.new(0, ProgressShineWidth, 1, 10),
             ZIndex = 5,
-            Parent = SliderContent,
+            Parent = SliderFill,
         })
         Library:AddGradient(ProgressShine, {
             Rotation = 0,
@@ -15474,6 +15490,64 @@ function Library:CreateLoading(LoadingInfo)
         LineJoinMode = Enum.LineJoinMode.Miter,
         Parent = ProgressLabel,
     })
+
+    local DisplayedProgress = Loading.TotalSteps > 0 and math.clamp(Loading.CurrentStep / Loading.TotalSteps, 0, 1) or 1
+    local TargetProgress = DisplayedProgress
+    local ProgressAnimationStart = DisplayedProgress
+    local ProgressAnimationElapsed = 0
+    local ProgressAnimationDuration = 0
+    local ProgressAnimationActive = false
+    local LastProgressStepClock
+
+    local function EaseLoadingProgress(Alpha)
+        Alpha = math.clamp(Alpha, 0, 1)
+        return Alpha * Alpha * Alpha * (Alpha * (Alpha * 6 - 15) + 10)
+    end
+
+    local function ApplyDisplayedProgress(Progress)
+        Progress = math.clamp(Progress, 0, 1)
+        SliderFill.Size = UDim2.fromScale(Progress, 1)
+        SliderCap.Visible = UseProgressCap and Progress > 0
+        SliderCap.BackgroundTransparency = (UseProgressCap and Progress > 0) and ProgressCapTransparency or 1
+        SliderCap.Position = UDim2.fromScale(Progress, 0.5)
+    end
+
+    local function StartProgressAnimation(Progress, Duration)
+        TargetProgress = math.clamp(Progress, 0, 1)
+
+        if
+            not (LoadingInfo.Animated and SmoothProgress)
+            or (tonumber(Duration) or 0) <= 0
+            or math.abs(TargetProgress - DisplayedProgress) <= 0.001
+        then
+            DisplayedProgress = TargetProgress
+            ProgressAnimationActive = false
+            ApplyDisplayedProgress(DisplayedProgress)
+            return
+        end
+
+        ProgressAnimationStart = DisplayedProgress
+        ProgressAnimationElapsed = 0
+        ProgressAnimationDuration = math.max(0.02, Duration)
+        ProgressAnimationActive = true
+    end
+
+    TrackConnection(RunService.RenderStepped:Connect(function(DeltaTime)
+        if not LoadingAnimations.Running or not ProgressAnimationActive then
+            return
+        end
+
+        ProgressAnimationElapsed += math.clamp(DeltaTime or 0, 0, 1 / 15)
+        local Alpha = math.clamp(ProgressAnimationElapsed / ProgressAnimationDuration, 0, 1)
+        DisplayedProgress = ProgressAnimationStart + ((TargetProgress - ProgressAnimationStart) * EaseLoadingProgress(Alpha))
+        ApplyDisplayedProgress(DisplayedProgress)
+
+        if Alpha >= 1 then
+            DisplayedProgress = TargetProgress
+            ProgressAnimationActive = false
+            ApplyDisplayedProgress(DisplayedProgress)
+        end
+    end))
 
     --// Sidebar Object \\--
     local SidebarScrolling = New("ScrollingFrame", {
@@ -15780,16 +15854,37 @@ function Library:CreateLoading(LoadingInfo)
         end
     end
 
-    function Loading:SetCurrentStep(Step)
-        Loading.CurrentStep = math.clamp(Step, 0, Loading.TotalSteps)
+    function Loading:SetCurrentStep(Step, Duration)
+        local PreviousTargetProgress = TargetProgress
+        local Now = os.clock()
+        Loading.CurrentStep = math.clamp(tonumber(Step) or 0, 0, Loading.TotalSteps)
 
         local Progress = Loading.TotalSteps > 0 and (Loading.CurrentStep / Loading.TotalSteps) or 1
-        TweenService:Create(SliderFill, Library.TweenInfo, { Size = UDim2.fromScale(Progress, 1) }):Play()
-        SliderCap.Visible = UseProgressCap and Progress > 0
-        TweenService:Create(SliderCap, Library.TweenInfo, {
-            BackgroundTransparency = (UseProgressCap and Progress > 0) and ProgressCapTransparency or 1,
-            Position = UDim2.fromScale(Progress, 0.5),
-        }):Play()
+        local ProgressDuration = 0
+        if LoadingInfo.Animated and SmoothProgress then
+            if tonumber(Duration) then
+                ProgressDuration = math.clamp(tonumber(Duration), SmoothProgressMinDuration, SmoothProgressMaxDuration)
+            elseif SmoothProgressDuration then
+                ProgressDuration =
+                    math.clamp(SmoothProgressDuration, SmoothProgressMinDuration, SmoothProgressMaxDuration)
+            else
+                local StepSize = Loading.TotalSteps > 0 and (1 / Loading.TotalSteps) or 1
+                local DistanceScale = StepSize > 0
+                        and math.clamp(math.abs(Progress - PreviousTargetProgress) / StepSize, 0.55, 2.2)
+                    or 1
+                local Cadence = LastProgressStepClock and math.max(0.05, Now - LastProgressStepClock)
+                    or SmoothProgressDefaultDuration
+
+                ProgressDuration = math.clamp(
+                    Cadence * SmoothProgressCadenceScale * DistanceScale,
+                    SmoothProgressMinDuration,
+                    SmoothProgressMaxDuration
+                )
+            end
+        end
+        LastProgressStepClock = Now
+        StartProgressAnimation(Progress, ProgressDuration)
+
         if LoadingInfo.Animated then
             ProgressLabel.TextTransparency = 0.35
             SliderGlow.BackgroundTransparency = 0.72

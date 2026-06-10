@@ -291,9 +291,15 @@ LeftGroupBox:AddLiquidGlassButton({
             ProgressBarShadowTransparency = 0.8,
             ProgressFillTransparency = 0.03,
             ProgressShine = true,
-            ProgressShineTransparency = 0.36,
-            ProgressShineWidth = 86,
-            ProgressShineSpeed = 1.45,
+            ProgressShineTransparency = 0.58,
+            ProgressShineWidth = 56,
+            ProgressShineSpeed = 1.8,
+            ProgressShineRotation = 12,
+            SmoothProgress = true,
+            SmoothProgressDefaultDuration = 0.58,
+            SmoothProgressMinDuration = 0.26,
+            SmoothProgressMaxDuration = 1.45,
+            SmoothProgressCadenceScale = 0.86,
             GradientTransition = true,
             GradientTransitionDuration = 0.72,
             GradientTransitionRotation = 45,
@@ -321,9 +327,9 @@ LeftGroupBox:AddLiquidGlassButton({
 
         Loading:SetTotalSteps(6)
         Loading:SetMessage("Booting mspaint")
-        Loading:SetDescription("Preparing clean static texture, clipped shine, and loading surfaces...")
+        Loading:SetDescription("Preparing clean static texture, clipped shine, and smooth loading surfaces...")
         Loading.Sidebar:AddLabel({
-            Text = "Live preview: clean static panel texture, static progress texture, clipped shiny sweep, and 45 degree gradient enter/exit.",
+            Text = "Live preview: clean static panel texture, static progress texture, clipped fill-only shiny sweep, smooth progress, and 45 degree gradient enter/exit.",
             DoesWrap = true,
         })
         Loading.Sidebar:AddGlassPanel("LoadingAnimationPanel", {
