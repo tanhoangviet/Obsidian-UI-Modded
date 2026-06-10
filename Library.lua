@@ -215,6 +215,22 @@ local CustomImageManagerAssets = {
         Id = nil,
     },
 
+    LoadingPanelStaticTexture = {
+        RobloxId = 0,
+        Path = "Obsidian/assets/LoadingPanelStaticTexture.png",
+        URL = BaseURL .. "assets/LoadingPanelStaticTexture.png",
+
+        Id = nil,
+    },
+
+    LoadingBarStaticTexture = {
+        RobloxId = 0,
+        Path = "Obsidian/assets/LoadingBarStaticTexture.png",
+        URL = BaseURL .. "assets/LoadingBarStaticTexture.png",
+
+        Id = nil,
+    },
+
     PixelLoadingDecor = {
         RobloxId = 0,
         Path = "Obsidian/assets/PixelLoadingDecor.png",
@@ -690,7 +706,7 @@ local Templates = {
         DisableDisappearAnimation = false,
         EntranceAnimationDuration = 0.62,
         ExitAnimationDuration = 0.38,
-        AmbientGradient = true,
+        AmbientGradient = false,
         Backdrop = false,
         BackdropTransparency = 0.35,
         IconPulse = true,
@@ -704,15 +720,12 @@ local Templates = {
         DrawingDecorations = true,
         Drawings = {},
         Decor = true,
-        DecorImage = CustomImageManager.GetAsset("LoadingPanelCleanFrame1"),
+        DecorImage = CustomImageManager.GetAsset("LoadingPanelStaticTexture"),
         DecorFrames = {
-            CustomImageManager.GetAsset("LoadingPanelCleanFrame1"),
-            CustomImageManager.GetAsset("LoadingPanelCleanFrame2"),
-            CustomImageManager.GetAsset("LoadingPanelCleanFrame3"),
-            CustomImageManager.GetAsset("LoadingPanelCleanFrame4"),
+            CustomImageManager.GetAsset("LoadingPanelStaticTexture"),
         },
-        DecorFrameRate = 60,
-        DecorImageTransparency = 0.24,
+        DecorFrameRate = 30,
+        DecorImageTransparency = 0.18,
         DecorImageColor3 = "WhiteColor",
         DecorHeight = 92,
         DecorPosition = "Full",
@@ -724,19 +737,14 @@ local Templates = {
         ProgressShineWidth = 72,
         ProgressShineRotation = 18,
         ProgressTexture = true,
-        ProgressTextureImage = CustomImageManager.GetAsset("LoadingBarFrame1"),
+        ProgressTextureImage = CustomImageManager.GetAsset("LoadingBarStaticTexture"),
         ProgressTextureFrames = {
-            CustomImageManager.GetAsset("LoadingBarFrame1"),
-            CustomImageManager.GetAsset("LoadingBarFrame2"),
-            CustomImageManager.GetAsset("LoadingBarFrame3"),
-            CustomImageManager.GetAsset("LoadingBarFrame4"),
-            CustomImageManager.GetAsset("LoadingBarFrame5"),
-            CustomImageManager.GetAsset("LoadingBarFrame6"),
+            CustomImageManager.GetAsset("LoadingBarStaticTexture"),
         },
-        ProgressTextureFrameRate = 60,
-        ProgressTextureTransparency = 0.06,
+        ProgressTextureFrameRate = 30,
+        ProgressTextureTransparency = 0.04,
         ProgressTextureColor = "WhiteColor",
-        ProgressTextureSpeed = 1.65,
+        ProgressTextureSpeed = 0,
         ProgressTextureTileSize = UDim2.fromOffset(192, 16),
         ProgressTrackTexture = true,
         ProgressTrackTextureImage = nil,
@@ -14309,7 +14317,7 @@ function Library:CreateLoading(LoadingInfo)
             return
         end
 
-        FrameRate = math.clamp(tonumber(FrameRate) or 60, 1, 60)
+        FrameRate = math.clamp(tonumber(FrameRate) or 30, 1, 60)
         local Token = TokenKey and ImageFrameAnimationTokens[TokenKey] or nil
 
         task.spawn(function()
@@ -14338,7 +14346,7 @@ function Library:CreateLoading(LoadingInfo)
     local UseProgressTexture = LoadingInfo.ProgressTexture or LoadingInfo.ProgressShine
         or typeof(LoadingInfo.ProgressTextureFrames) == "table"
     local ProgressTextureTransparency = math.clamp(tonumber(LoadingInfo.ProgressTextureTransparency) or 0.42, 0, 1)
-    local ProgressTextureSpeed = math.max(0, tonumber(LoadingInfo.ProgressTextureSpeed) or 1.65)
+    local ProgressTextureSpeed = math.max(0, tonumber(LoadingInfo.ProgressTextureSpeed) or 0)
     local ProgressTextureImage =
         ResolveLoadingImageAsset(LoadingInfo.ProgressTextureImage, "LoadingBarTexture_", DefaultProgressTextureImage)
     local ProgressTextureFrames =
@@ -14346,7 +14354,7 @@ function Library:CreateLoading(LoadingInfo)
     if #ProgressTextureFrames > 0 then
         ProgressTextureImage = ProgressTextureFrames[1]
     end
-    local ProgressTextureFrameRate = math.clamp(tonumber(LoadingInfo.ProgressTextureFrameRate) or 60, 1, 60)
+    local ProgressTextureFrameRate = math.clamp(tonumber(LoadingInfo.ProgressTextureFrameRate) or 30, 1, 60)
     local ProgressTextureTileSize = LoadingInfo.ProgressTextureTileSize or UDim2.fromOffset(64, 16)
     local ProgressTextureColor = LoadingInfo.ProgressTextureColor or "WhiteColor"
     local ProgressTrackTexture = LoadingInfo.ProgressTrackTexture ~= false
@@ -14414,8 +14422,8 @@ function Library:CreateLoading(LoadingInfo)
     if #DecorFrames > 0 then
         DecorImage = DecorFrames[1]
     end
-    local DecorFrameRate = math.clamp(tonumber(LoadingInfo.DecorFrameRate) or 60, 1, 60)
-    local DecorImageTransparency = math.clamp(tonumber(LoadingInfo.DecorImageTransparency) or 0.24, 0, 1)
+    local DecorFrameRate = math.clamp(tonumber(LoadingInfo.DecorFrameRate) or 30, 1, 60)
+    local DecorImageTransparency = math.clamp(tonumber(LoadingInfo.DecorImageTransparency) or 0.18, 0, 1)
     local DecorHeight = math.max(0, tonumber(LoadingInfo.DecorHeight) or 92)
     local DecorPosition = tostring(LoadingInfo.DecorPosition or "Bottom"):lower()
     local DecorScaleType = typeof(LoadingInfo.DecorScaleType) == "EnumItem" and LoadingInfo.DecorScaleType
@@ -15424,7 +15432,7 @@ function Library:CreateLoading(LoadingInfo)
         local ProgressShine = New("Frame", {
             AnchorPoint = Vector2.new(0.5, 0.5),
             BackgroundColor3 = LoadingInfo.ProgressShineColor or "WhiteColor",
-            BackgroundTransparency = math.clamp(tonumber(LoadingInfo.ProgressShineTransparency) or 0.28, 0, 1),
+            BackgroundTransparency = math.clamp(tonumber(LoadingInfo.ProgressShineTransparency) or 0.36, 0, 1),
             BorderSizePixel = 0,
             Position = UDim2.new(0, -ProgressShineWidth, 0.5, 0),
             Rotation = tonumber(LoadingInfo.ProgressShineRotation) or 18,

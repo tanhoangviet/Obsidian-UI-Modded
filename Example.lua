@@ -263,29 +263,23 @@ LeftGroupBox:AddLiquidGlassButton({
             DisableDisappearAnimation = false,
             EntranceAnimationDuration = 0.62,
             ExitAnimationDuration = 0.38,
+            AmbientGradient = false,
             DrawingDecorations = true,
             Decor = true,
-            DecorImage = Library.ImageManager.GetAsset("LoadingPanelCleanFrame1"),
+            DecorImage = Library.ImageManager.GetAsset("LoadingPanelStaticTexture"),
             DecorFrames = {
-                Library.ImageManager.GetAsset("LoadingPanelCleanFrame1"),
-                Library.ImageManager.GetAsset("LoadingPanelCleanFrame2"),
-                Library.ImageManager.GetAsset("LoadingPanelCleanFrame3"),
-                Library.ImageManager.GetAsset("LoadingPanelCleanFrame4"),
+                Library.ImageManager.GetAsset("LoadingPanelStaticTexture"),
             },
-            DecorFrameRate = 60,
-            DecorImageTransparency = 0.24,
+            DecorFrameRate = 30,
+            DecorImageTransparency = 0.18,
             DecorPosition = "Full",
-            ProgressTextureImage = Library.ImageManager.GetAsset("LoadingBarFrame1"),
+            ProgressTextureImage = Library.ImageManager.GetAsset("LoadingBarStaticTexture"),
             ProgressTextureFrames = {
-                Library.ImageManager.GetAsset("LoadingBarFrame1"),
-                Library.ImageManager.GetAsset("LoadingBarFrame2"),
-                Library.ImageManager.GetAsset("LoadingBarFrame3"),
-                Library.ImageManager.GetAsset("LoadingBarFrame4"),
-                Library.ImageManager.GetAsset("LoadingBarFrame5"),
-                Library.ImageManager.GetAsset("LoadingBarFrame6"),
+                Library.ImageManager.GetAsset("LoadingBarStaticTexture"),
             },
-            ProgressTextureFrameRate = 60,
-            ProgressTextureTransparency = 0.06,
+            ProgressTextureFrameRate = 30,
+            ProgressTextureTransparency = 0.04,
+            ProgressTextureSpeed = 0,
             ProgressTextureTileSize = UDim2.fromOffset(192, 16),
             ProgressTrackTexture = true,
             ProgressTrackTextureTransparency = 0.56,
@@ -322,43 +316,14 @@ LeftGroupBox:AddLiquidGlassButton({
             GradientTransitionExitInOffset = Vector2.new(1.2, 1.2),
             GradientTransitionExitOutOffset = Vector2.new(-1.2, -1.2),
             ProgressCap = false,
-            Drawings = {
-                {
-                    Type = "Texture",
-                    Name = "BottomTextureWash",
-                    Image = Library.ImageManager.GetAsset("LoadingBarFrame4"),
-                    Frames = {
-                        Library.ImageManager.GetAsset("LoadingBarFrame1"),
-                        Library.ImageManager.GetAsset("LoadingBarFrame2"),
-                        Library.ImageManager.GetAsset("LoadingBarFrame3"),
-                        Library.ImageManager.GetAsset("LoadingBarFrame4"),
-                        Library.ImageManager.GetAsset("LoadingBarFrame5"),
-                        Library.ImageManager.GetAsset("LoadingBarFrame6"),
-                    },
-                    FrameRate = 60,
-                    ImageColor3 = Color3.fromRGB(125, 85, 255),
-                    ImageTransparency = 0.7,
-                    Position = UDim2.new(0, 0, 1, -34),
-                    Size = UDim2.new(1, 0, 0, 28),
-                    ScaleType = Enum.ScaleType.Tile,
-                    TileSize = UDim2.fromOffset(192, 16),
-                },
-                {
-                    Type = "Line",
-                    Name = "BottomAccentLine",
-                    BackgroundColor3 = Color3.fromRGB(125, 85, 255),
-                    BackgroundTransparency = 0.35,
-                    Position = UDim2.new(0, 14, 1, -45),
-                    Size = UDim2.new(1, -28, 0, 1),
-                },
-            },
+            Drawings = {},
         })
 
         Loading:SetTotalSteps(6)
         Loading:SetMessage("Booting mspaint")
-        Loading:SetDescription("Preparing pixel decor, clipped textures, and loading drawings...")
+        Loading:SetDescription("Preparing clean static texture, clipped shine, and loading surfaces...")
         Loading.Sidebar:AddLabel({
-            Text = "Live preview: multi-image panel texture frames, animated bar texture frames, clipped shine sweep, gradient transparency enter/exit, and drawing API decorations.",
+            Text = "Live preview: clean static panel texture, static progress texture, clipped shiny sweep, and 45 degree gradient enter/exit.",
             DoesWrap = true,
         })
         Loading.Sidebar:AddGlassPanel("LoadingAnimationPanel", {
