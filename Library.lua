@@ -247,6 +247,22 @@ local CustomImageManagerAssets = {
 
         Id = nil,
     },
+
+    SolarLockIcon = {
+        RobloxId = 0,
+        Path = "Obsidian/assets/SolarLockIcon.png",
+        URL = BaseURL .. "assets/SolarLockIcon.png",
+
+        Id = nil,
+    },
+
+    SolarUnlockIcon = {
+        RobloxId = 0,
+        Path = "Obsidian/assets/SolarUnlockIcon.png",
+        URL = BaseURL .. "assets/SolarUnlockIcon.png",
+
+        Id = nil,
+    },
 }
 do
     local function RecursiveCreatePath(Path: string, IsFile: boolean?)
@@ -650,13 +666,19 @@ local Templates = {
         DynamicIslandHeight = nil,
         DynamicIslandPosition = UDim2.new(0.5, 0, 0, 8),
         DynamicIslandAnchorPoint = Vector2.new(0.5, 0),
-        DynamicIslandSize = UDim2.fromOffset(168, 38),
-        DynamicIslandExpandedSize = UDim2.fromOffset(206, 42),
-        DynamicIslandIdleSize = UDim2.fromOffset(118, 30),
-        DynamicIslandAssetSize = UDim2.fromOffset(24, 24),
+        DynamicIslandSize = UDim2.fromOffset(132, 36),
+        DynamicIslandExpandedSize = UDim2.fromOffset(158, 36),
+        DynamicIslandIdleSize = UDim2.fromOffset(84, 36),
+        DynamicIslandAssetSize = UDim2.fromOffset(20, 20),
+        DynamicIslandLockIconSize = UDim2.fromOffset(15, 15),
+        DynamicIslandFont = Font.fromEnum(Enum.Font.GothamMedium),
         DynamicIslandZIndex = 250,
-        DynamicIslandTransparency = 0.08,
-        DynamicIslandIdleTransparency = 0.58,
+        DynamicIslandTransparency = 0,
+        DynamicIslandIdleTransparency = 0.16,
+        DynamicIslandGlassTransparency = 0.88,
+        DynamicIslandBorderThickness = 1.35,
+        DynamicIslandLockedIcon = "https://api.iconify.design/solar:lock-keyhole-minimalistic-bold.svg?color=%23ffffff",
+        DynamicIslandUnlockedIcon = "https://api.iconify.design/solar:lock-keyhole-minimalistic-unlocked-bold.svg?color=%23ffffff",
         DynamicIslandIdlePosition = UDim2.new(0.5, 0, 0, 2),
         DynamicIslandIdleDelay = 2.35,
         DynamicIslandHoldDuration = 0.45,
@@ -10973,6 +10995,29 @@ function Library:CreateWindow(WindowInfo)
         return Image
     end
 
+    local DynamicIslandLockedIconUrl = "https://api.iconify.design/solar:lock-keyhole-minimalistic-bold.svg?color=%23ffffff"
+    local DynamicIslandUnlockedIconUrl =
+        "https://api.iconify.design/solar:lock-keyhole-minimalistic-unlocked-bold.svg?color=%23ffffff"
+
+    local function GetUrlExtension(Url: string): string
+        local Extension = Url:gsub("[?#].*$", ""):match("%.([%w]+)$")
+        if not Extension or #Extension > 5 then
+            return "png"
+        end
+
+        return Extension:lower()
+    end
+
+    local function ResolveDynamicIslandRemoteImage(Image: string, Name: string)
+        local Hash = HashString(Image)
+        local Extension = GetUrlExtension(Image)
+        return Library:DownloadImage(Image, {
+            AssetName = Name .. "_" .. Hash,
+            FileName = Name .. "_" .. Hash .. "." .. Extension,
+            Extension = Extension,
+        })
+    end
+
     local DynamicIslandController
     local ToggleMethod = tostring(WindowInfo.MethodToggle or WindowInfo.ToggleMethod or WindowInfo.MobileButtonsMode or "Button")
     ToggleMethod = ToggleMethod:lower():gsub("[%s_%-%/]+", "")
@@ -10997,8 +11042,27 @@ function Library:CreateWindow(WindowInfo)
         end
 
         if IsHttpUrl(Asset) then
+            if Asset == DynamicIslandLockedIconUrl then
+                return {
+                    Url = CustomImageManager.GetAsset("SolarLockIcon")
+                        or ResolveDynamicIslandRemoteImage(Asset, "WindowDynamicIslandLockedIcon"),
+                    ImageRectOffset = Vector2.zero,
+                    ImageRectSize = Vector2.zero,
+                    Custom = true,
+                }
+            end
+            if Asset == DynamicIslandUnlockedIconUrl then
+                return {
+                    Url = CustomImageManager.GetAsset("SolarUnlockIcon")
+                        or ResolveDynamicIslandRemoteImage(Asset, "WindowDynamicIslandUnlockedIcon"),
+                    ImageRectOffset = Vector2.zero,
+                    ImageRectSize = Vector2.zero,
+                    Custom = true,
+                }
+            end
+
             return {
-                Url = ResolveWindowImage(Asset, "WindowDynamicIslandAsset"),
+                Url = ResolveDynamicIslandRemoteImage(Asset, "WindowDynamicIslandAsset"),
                 ImageRectOffset = Vector2.zero,
                 ImageRectSize = Vector2.zero,
                 Custom = true,
@@ -11057,17 +11121,25 @@ function Library:CreateWindow(WindowInfo)
             return UDim2.new(Size.X.Scale, WidthOffset, 0, HeightOffset)
         end
 
-        local CollapsedSize = ApplyIslandHeight(WindowInfo.DynamicIslandSize, 168)
-        local ExpandedSize = ApplyIslandHeight(WindowInfo.DynamicIslandExpandedSize, 206)
-        local IdleSize = ApplyIslandHeight(WindowInfo.DynamicIslandIdleSize, 118)
+        local CollapsedSize = ApplyIslandHeight(WindowInfo.DynamicIslandSize, 132)
+        local ExpandedSize = ApplyIslandHeight(WindowInfo.DynamicIslandExpandedSize, 158)
+        local IdleSize = ApplyIslandHeight(WindowInfo.DynamicIslandIdleSize, 84)
         local ActivePosition = if UseTopbarHeight
             then UDim2.new(0.5, 0, 0, TopbarY)
             else (WindowInfo.DynamicIslandPosition or UDim2.new(0.5, 0, 0, 8))
         local IdlePosition = if UseTopbarHeight
             then UDim2.new(0.5, 0, 0, TopbarY - math.floor(TopbarHeight * 0.42))
             else (WindowInfo.DynamicIslandIdlePosition or UDim2.new(0.5, 0, 0, 2))
-        local BaseTransparency = math.clamp(tonumber(WindowInfo.DynamicIslandTransparency) or 0.08, 0, 1)
-        local IdleTransparency = math.clamp(tonumber(WindowInfo.DynamicIslandIdleTransparency) or 0.58, 0, 1)
+        local BaseTransparency = math.clamp(tonumber(WindowInfo.DynamicIslandTransparency) or 0, 0, 1)
+        local IdleTransparency = math.clamp(tonumber(WindowInfo.DynamicIslandIdleTransparency) or 0.16, 0, 1)
+        local GlassTransparency = math.clamp(tonumber(WindowInfo.DynamicIslandGlassTransparency) or 0.88, 0, 1)
+        local BorderThickness = math.max(1, tonumber(WindowInfo.DynamicIslandBorderThickness) or 1.35)
+        local IslandFont = WindowInfo.DynamicIslandFont or Font.fromEnum(Enum.Font.GothamMedium)
+        local AssetSize = WindowInfo.DynamicIslandAssetSize or UDim2.fromOffset(20, 20)
+        local LockIconSize = WindowInfo.DynamicIslandLockIconSize or UDim2.fromOffset(15, 15)
+        local AssetWidth = math.max(16, AssetSize.X.Offset ~= 0 and AssetSize.X.Offset or TopbarHeight - 16)
+        local LockIconWidth = math.max(12, LockIconSize.X.Offset ~= 0 and LockIconSize.X.Offset or 15)
+        local TextLeft = 11 + AssetWidth + 7
         local IdleDelay = math.max(0.35, tonumber(WindowInfo.DynamicIslandIdleDelay) or 2.35)
         local HoldDuration = math.max(0.2, tonumber(WindowInfo.DynamicIslandHoldDuration) or 0.45)
         local IdleEnabled = WindowInfo.DynamicIslandIdle ~= false and WindowInfo.DynamicIslandIdleEnabled ~= false
@@ -11087,57 +11159,77 @@ function Library:CreateWindow(WindowInfo)
             Parent = FloatingSpritesGui,
         })
         table.insert(Library.Corners, New("UICorner", { CornerRadius = UDim.new(1, 0), Parent = Island }))
-        local OutlineStroke = Library:AddOutline(Island, {
+        local OuterGlowStroke = New("UIStroke", {
             Color = "AccentColor",
-            Thickness = 1.25,
-            Transparency = 0.28,
-            ShadowTransparency = 0.68,
+            Thickness = BorderThickness + 2,
+            Transparency = 0.84,
+            Parent = Island,
         })
-        local IslandGradient = Library:AddGradient(Island, {
-            Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Library.Scheme.AccentColor),
-                ColorSequenceKeypoint.new(0.55, Library:GetBetterColor(Library.Scheme.MainColor, 10)),
-                ColorSequenceKeypoint.new(1, Library.Scheme.BackgroundColor),
-            }),
-            Rotation = 22,
+        local OutlineStroke = New("UIStroke", {
+            Color = "AccentColor",
+            Thickness = BorderThickness,
+            Transparency = 0.04,
+            Parent = Island,
+        })
+        Library:AddGradient(OutlineStroke, {
+            Color = function()
+                return ColorSequence.new({
+                    ColorSequenceKeypoint.new(0, Library.Scheme.AccentColor),
+                    ColorSequenceKeypoint.new(0.45, Library.Scheme.WhiteColor),
+                    ColorSequenceKeypoint.new(1, Library:GetBetterColor(Library.Scheme.AccentColor, 24)),
+                })
+            end,
+            Rotation = 0,
+        })
+
+        local GlassLayer = New("Frame", {
+            BackgroundColor3 = "WhiteColor",
+            BackgroundTransparency = GlassTransparency,
+            Size = UDim2.fromScale(1, 1),
+            ZIndex = Island.ZIndex + 1,
+            Parent = Island,
+        })
+        table.insert(Library.Corners, New("UICorner", { CornerRadius = UDim.new(1, 0), Parent = GlassLayer }))
+        local IslandGradient = Library:AddGradient(GlassLayer, {
+            Color = function()
+                return ColorSequence.new({
+                    ColorSequenceKeypoint.new(0, Library.Scheme.WhiteColor),
+                    ColorSequenceKeypoint.new(0.42, Library:GetBetterColor(Library.Scheme.MainColor, 18)),
+                    ColorSequenceKeypoint.new(1, Library.Scheme.AccentColor),
+                })
+            end,
+            Rotation = 18,
             Transparency = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 0.72),
-                NumberSequenceKeypoint.new(0.5, 0.9),
-                NumberSequenceKeypoint.new(1, 0.82),
+                NumberSequenceKeypoint.new(0, 0.62),
+                NumberSequenceKeypoint.new(0.5, 0.92),
+                NumberSequenceKeypoint.new(1, 0.72),
             }),
         })
 
         local AssetHolder = New("Frame", {
             AnchorPoint = Vector2.new(0, 0.5),
-            BackgroundColor3 = "MainColor",
-            BackgroundTransparency = 0.18,
+            BackgroundTransparency = 1,
             ClipsDescendants = true,
-            Position = UDim2.new(0, 7, 0.5, 0),
-            Size = WindowInfo.DynamicIslandAssetSize or UDim2.fromOffset(24, 24),
+            Position = UDim2.new(0, 10, 0.5, 0),
+            Size = AssetSize,
             ZIndex = Island.ZIndex + 2,
             Parent = Island,
         })
         table.insert(Library.Corners, New("UICorner", { CornerRadius = UDim.new(1, 0), Parent = AssetHolder }))
-        Library:AddOutline(AssetHolder, {
-            Color = "AccentColor",
-            Thickness = 1,
-            Transparency = 0.42,
-            ShadowTransparency = 1,
-        })
 
         local AssetImage = New("ImageLabel", {
             AnchorPoint = Vector2.new(0.5, 0.5),
             BackgroundTransparency = 1,
             Position = UDim2.fromScale(0.5, 0.5),
-            Size = UDim2.new(1, -5, 1, -5),
+            Size = UDim2.fromScale(1, 1),
             ZIndex = AssetHolder.ZIndex + 1,
             Parent = AssetHolder,
         })
 
         local TextHolder = New("Frame", {
             BackgroundTransparency = 1,
-            Position = UDim2.new(0, 38, 0, 5),
-            Size = UDim2.new(1, -64, 1, -10),
+            Position = UDim2.new(0, TextLeft, 0, 4),
+            Size = UDim2.new(1, -(TextLeft + LockIconWidth + 13), 1, -8),
             ZIndex = Island.ZIndex + 2,
             Parent = Island,
         })
@@ -11152,8 +11244,9 @@ function Library:CreateWindow(WindowInfo)
         local TitleLabel = New("TextLabel", {
             BackgroundTransparency = 1,
             Size = UDim2.new(1, 0, 0, 15),
+            FontFace = IslandFont,
             Text = WindowInfo.DynamicIslandText or WindowInfo.Title or "Obsidian",
-            TextSize = 13,
+            TextSize = math.clamp(TopbarHeight * 0.31, 11, 14),
             TextTruncate = Enum.TextTruncate.AtEnd,
             TextXAlignment = Enum.TextXAlignment.Left,
             ZIndex = TextHolder.ZIndex + 1,
@@ -11162,8 +11255,9 @@ function Library:CreateWindow(WindowInfo)
         local StatusLabel = New("TextLabel", {
             BackgroundTransparency = 1,
             Size = UDim2.new(1, 0, 0, 12),
+            FontFace = IslandFont,
             Text = WindowInfo.DynamicIslandClosedText or WindowInfo.DynamicIslandSubtitle or "Menu closed",
-            TextSize = 10,
+            TextSize = math.clamp(TopbarHeight * 0.22, 8, 10),
             TextTransparency = 0.45,
             TextTruncate = Enum.TextTruncate.AtEnd,
             TextXAlignment = Enum.TextXAlignment.Left,
@@ -11171,16 +11265,17 @@ function Library:CreateWindow(WindowInfo)
             Parent = TextHolder,
         })
 
-        local StatusDot = New("Frame", {
+        local StatusDot = New("ImageLabel", {
+            Name = "LockIcon",
             AnchorPoint = Vector2.new(1, 0.5),
-            BackgroundColor3 = "AccentColor",
-            BackgroundTransparency = 0.18,
+            BackgroundTransparency = 1,
+            ImageColor3 = "WhiteColor",
+            ImageTransparency = 0.16,
             Position = UDim2.new(1, -11, 0.5, 0),
-            Size = UDim2.fromOffset(6, 6),
+            Size = LockIconSize,
             ZIndex = Island.ZIndex + 2,
             Parent = Island,
         })
-        table.insert(Library.Corners, New("UICorner", { CornerRadius = UDim.new(1, 0), Parent = StatusDot }))
 
         local Controller = {
             Holder = Island,
@@ -11194,6 +11289,25 @@ function Library:CreateWindow(WindowInfo)
         local IsIdle = false
         local IsPressing = false
         local LongPressTriggered = false
+        local LockedIcon = ResolveDynamicIslandAsset(WindowInfo.DynamicIslandLockedIcon or DynamicIslandLockedIconUrl)
+        local UnlockedIcon = ResolveDynamicIslandAsset(WindowInfo.DynamicIslandUnlockedIcon or DynamicIslandUnlockedIconUrl)
+
+        local function ApplyImageLabelIcon(Label: ImageLabel, Icon)
+            if not Icon then
+                Label.Image = ""
+                return
+            end
+
+            Label.Image = Icon.Url or ""
+            Label.ImageRectOffset = Icon.ImageRectOffset or Vector2.zero
+            Label.ImageRectSize = Icon.ImageRectSize or Vector2.zero
+        end
+
+        local function SetLockVisual(Locked: boolean)
+            ApplyImageLabelIcon(StatusDot, Locked and LockedIcon or UnlockedIcon)
+            StatusDot.ImageColor3 = Library.Scheme.WhiteColor
+            StatusDot.ImageTransparency = IsIdle and 0.34 or (Locked and 0.04 or 0.18)
+        end
 
         local function SetIslandIdleState(Idle, Instant)
             IsIdle = Idle == true
@@ -11201,17 +11315,24 @@ function Library:CreateWindow(WindowInfo)
             local TargetSize = IsIdle and IdleSize or (Library.Toggled and ExpandedSize or CollapsedSize)
             local TargetPosition = IsIdle and IdlePosition or ActivePosition
             local TargetTransparency = IsIdle and IdleTransparency or BaseTransparency
+            local TargetBorderTransparency = IsIdle and 0.22 or (Library.Toggled and 0.01 or 0.04)
+            local TargetGlowTransparency = IsIdle and 0.9 or (Library.Toggled and 0.72 or 0.82)
+            local TargetGlassTransparency = math.clamp(GlassTransparency + (IsIdle and 0.05 or 0), 0, 1)
+            local TargetIconTransparency = IsIdle and 0.3 or 0
+            local TargetLockTransparency = IsIdle and 0.34 or (Library.CantDragForced and 0.04 or 0.18)
             local TweenTime = Instant and 0 or (IsIdle and 0.28 or 0.2)
 
             if Instant then
                 Island.Size = TargetSize
                 Island.Position = TargetPosition
                 Island.BackgroundTransparency = TargetTransparency
-                OutlineStroke.Transparency = IsIdle and 0.52 or (Library.Toggled and 0.12 or 0.28)
+                OutlineStroke.Transparency = TargetBorderTransparency
+                OuterGlowStroke.Transparency = TargetGlowTransparency
+                GlassLayer.BackgroundTransparency = TargetGlassTransparency
                 TitleLabel.TextTransparency = IsIdle and 0.2 or 0
                 StatusLabel.TextTransparency = IsIdle and 1 or 0.45
-                AssetHolder.BackgroundTransparency = IsIdle and 0.32 or 0.18
-                StatusDot.BackgroundTransparency = IsIdle and 0.38 or (Library.Toggled and 0 or 0.45)
+                AssetImage.ImageTransparency = TargetIconTransparency
+                StatusDot.ImageTransparency = TargetLockTransparency
                 return
             end
 
@@ -11221,7 +11342,13 @@ function Library:CreateWindow(WindowInfo)
                 Size = TargetSize,
             }):Play()
             TweenService:Create(OutlineStroke, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                Transparency = IsIdle and 0.52 or (Library.Toggled and 0.12 or 0.28),
+                Transparency = TargetBorderTransparency,
+            }):Play()
+            TweenService:Create(OuterGlowStroke, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                Transparency = TargetGlowTransparency,
+            }):Play()
+            TweenService:Create(GlassLayer, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                BackgroundTransparency = TargetGlassTransparency,
             }):Play()
             TweenService:Create(TitleLabel, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 TextTransparency = IsIdle and 0.2 or 0,
@@ -11229,11 +11356,11 @@ function Library:CreateWindow(WindowInfo)
             TweenService:Create(StatusLabel, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 TextTransparency = IsIdle and 1 or 0.45,
             }):Play()
-            TweenService:Create(AssetHolder, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                BackgroundTransparency = IsIdle and 0.32 or 0.18,
+            TweenService:Create(AssetImage, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                ImageTransparency = TargetIconTransparency,
             }):Play()
             TweenService:Create(StatusDot, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                BackgroundTransparency = IsIdle and 0.38 or (Library.Toggled and 0 or 0.45),
+                ImageTransparency = TargetLockTransparency,
             }):Play()
         end
 
@@ -11265,8 +11392,8 @@ function Library:CreateWindow(WindowInfo)
                 or (WindowInfo.DynamicIslandUnlockedText or "Unlocked")
             StatusLabel.Text = Text
             StatusLabel.TextTransparency = 0.2
-            StatusDot.BackgroundColor3 = Locked and Color3.fromRGB(255, 194, 92) or Library.Scheme.AccentColor
-            StatusDot.BackgroundTransparency = 0
+            SetLockVisual(Locked)
+            StatusDot.ImageTransparency = 0.04
             Controller:Wake()
             Controller:ScheduleIdle()
         end
@@ -11306,12 +11433,12 @@ function Library:CreateWindow(WindowInfo)
                     or (WindowInfo.DynamicIslandClosedText or WindowInfo.DynamicIslandSubtitle or "Menu closed")
                 )
             StatusLabel.Text = StatusText
-            StatusDot.BackgroundColor3 = Library.CantDragForced and Color3.fromRGB(255, 194, 92) or Library.Scheme.AccentColor
-            StatusDot.BackgroundTransparency = Active and 0 or 0.45
+            SetLockVisual(Library.CantDragForced)
+            StatusDot.ImageTransparency = Library.CantDragForced and 0.04 or (Active and 0.1 or 0.18)
             IslandGradient.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Library.Scheme.AccentColor),
-                ColorSequenceKeypoint.new(0.6, Active and Library.Scheme.MainColor or Library.Scheme.BackgroundColor),
-                ColorSequenceKeypoint.new(1, Library.Scheme.BackgroundColor),
+                ColorSequenceKeypoint.new(0, Active and Library.Scheme.WhiteColor or Library.Scheme.AccentColor),
+                ColorSequenceKeypoint.new(0.48, Library:GetBetterColor(Library.Scheme.MainColor, Active and 24 or 12)),
+                ColorSequenceKeypoint.new(1, Library.Scheme.AccentColor),
             })
             SetIslandIdleState(false)
             Controller:ScheduleIdle()
@@ -11325,13 +11452,19 @@ function Library:CreateWindow(WindowInfo)
         Island.MouseEnter:Connect(function()
             Controller:Wake()
             TweenService:Create(Island, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                BackgroundTransparency = math.max(0, BaseTransparency - 0.04),
+                BackgroundTransparency = math.max(0, BaseTransparency - 0.02),
+            }):Play()
+            TweenService:Create(GlassLayer, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                BackgroundTransparency = math.max(0, GlassTransparency - 0.04),
             }):Play()
         end)
         Island.MouseLeave:Connect(function()
             Controller:ScheduleIdle()
             TweenService:Create(Island, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 BackgroundTransparency = IsIdle and IdleTransparency or BaseTransparency,
+            }):Play()
+            TweenService:Create(GlassLayer, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                BackgroundTransparency = math.clamp(GlassTransparency + (IsIdle and 0.05 or 0), 0, 1),
             }):Play()
         end)
         Island.InputBegan:Connect(function(Input: InputObject)
