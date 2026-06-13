@@ -9479,6 +9479,10 @@ do
         return Tabbox
     end
 
+    Funcs.AddTabBox = Funcs.AddTabbox
+    Funcs.AddNestedTabbox = Funcs.AddTabbox
+    Funcs.AddGroupboxTabbox = Funcs.AddTabbox
+
     function Funcs:AddDependencyBox()
         local Groupbox = self
         local Container = Groupbox.Container

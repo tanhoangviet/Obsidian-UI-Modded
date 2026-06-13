@@ -426,6 +426,7 @@ LeftGroupBox:AddLiquidGlassButton({
 })
 
 local GroupboxTabBox = LeftGroupBox:AddTabbox({ Name = "Groupbox nested tabbox" })
+-- Aliases after fork sync: AddTabBox, AddNestedTabbox, AddGroupboxTabbox.
 local MiningTab = GroupboxTabBox:AddTab("Mining", "pickaxe")
 MiningTab:AddToggle("GroupboxTabboxAutoMine", {
     Text = "Auto Mine",

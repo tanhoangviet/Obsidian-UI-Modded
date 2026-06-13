@@ -1139,6 +1139,9 @@ export type BaseGroupbox = {
     AddTopUserBox: ((self: Groupbox, Idx: string, Info: TopUserBoxInfo) -> TopUserBox)
         & ((self: Groupbox, Info: TopUserBoxInfo) -> TopUserBox),
     AddTabbox: (self: Groupbox, Info: { Name: string?, Visible: boolean? } | string?) -> Tabbox,
+    AddTabBox: (self: Groupbox, Info: { Name: string?, Visible: boolean? } | string?) -> Tabbox,
+    AddNestedTabbox: (self: Groupbox, Info: { Name: string?, Visible: boolean? } | string?) -> Tabbox,
+    AddGroupboxTabbox: (self: Groupbox, Info: { Name: string?, Visible: boolean? } | string?) -> Tabbox,
     AddDependencyBox: (self: Groupbox) -> DependencyBox,
     AddDependencyGroupbox: (self: Groupbox) -> DependencyGroupbox,
 }
