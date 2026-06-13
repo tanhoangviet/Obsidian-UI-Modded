@@ -33,6 +33,12 @@ local Window = Library:CreateWindow({
     NotifySide = "Right",
     ShowCustomCursor = true,
     --MobileButtonsMode = "Normal",
+    MethodToggle = "DynamicIsland",
+    DynamicIsland = true,
+    DynamicIslandAsset = 95816097006870,
+    DynamicIslandText = "mspaint",
+    DynamicIslandClosedText = "Tap to open UI",
+    DynamicIslandOpenText = "UI is active",
 
     -- Modded visuals: background image, gradient overlay, and custom border stroke.
     BackgroundImage = RepoAsset("assets/Example.png"),
@@ -41,8 +47,14 @@ local Window = Library:CreateWindow({
     BackgroundImagePanelTransparency = 0.08,
     Gradient = true,
     GradientColorSequence = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(125, 85, 255)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 15, 15)),
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(168, 118, 255)),
+        ColorSequenceKeypoint.new(0.55, Color3.fromRGB(42, 28, 92)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(5, 8, 22)),
+    }),
+    GradientTransparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0.76),
+        NumberSequenceKeypoint.new(0.55, 0.9),
+        NumberSequenceKeypoint.new(1, 0.98),
     }),
     GradientRotation = 35,
     BorderColor = Color3.fromRGB(125, 85, 255),

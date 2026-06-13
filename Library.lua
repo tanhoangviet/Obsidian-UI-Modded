@@ -630,8 +630,26 @@ local Templates = {
         ToggleKeybind = Enum.KeyCode.RightControl,
 
         ShowMobileButtons = true,
+        MethodToggle = "Button", -- Button, DynamicIsland
+        ToggleMethod = nil,
         MobileButtonsSide = "Left",
         MobileButtonsMode = "Normal", -- Normal, TopbarPlus
+        DynamicIsland = false,
+        DynamicIslandActive = nil,
+        DynamicIslandAsset = nil,
+        DynamicIslandImage = nil,
+        DynamicIslandIcon = nil,
+        DynamicIslandText = nil,
+        DynamicIslandSubtitle = nil,
+        DynamicIslandOpenText = nil,
+        DynamicIslandClosedText = nil,
+        DynamicIslandPosition = UDim2.new(0.5, 0, 0, 8),
+        DynamicIslandAnchorPoint = Vector2.new(0.5, 0),
+        DynamicIslandSize = UDim2.fromOffset(218, 46),
+        DynamicIslandExpandedSize = UDim2.fromOffset(252, 50),
+        DynamicIslandAssetSize = UDim2.fromOffset(30, 30),
+        DynamicIslandZIndex = 250,
+        DynamicIslandTransparency = 0.08,
         KeybindMenuWidth = 300,
         KeybindMenuHeight = nil,
         KeybindMenuMaxHeight = 260,
@@ -10943,6 +10961,243 @@ function Library:CreateWindow(WindowInfo)
         return Image
     end
 
+    local DynamicIslandController
+    local ToggleMethod = tostring(WindowInfo.MethodToggle or WindowInfo.ToggleMethod or WindowInfo.MobileButtonsMode or "Button")
+    ToggleMethod = ToggleMethod:lower():gsub("[%s_%-%/]+", "")
+    local UseDynamicIslandToggle = WindowInfo.DynamicIsland == true
+        or WindowInfo.DynamicIslandActive == true
+        or ToggleMethod == "dynamicisland"
+
+    local function ResolveDynamicIslandAsset(Asset)
+        Asset = Asset or WindowInfo.DynamicIslandImage or WindowInfo.DynamicIslandIcon or WindowInfo.Icon or "sparkles"
+
+        if tonumber(Asset) then
+            return {
+                Url = string.format("rbxassetid://%s", tostring(Asset)),
+                ImageRectOffset = Vector2.zero,
+                ImageRectSize = Vector2.zero,
+                Custom = true,
+            }
+        end
+
+        if typeof(Asset) ~= "string" then
+            return nil
+        end
+
+        if IsHttpUrl(Asset) then
+            return {
+                Url = ResolveWindowImage(Asset, "WindowDynamicIslandAsset"),
+                ImageRectOffset = Vector2.zero,
+                ImageRectSize = Vector2.zero,
+                Custom = true,
+            }
+        end
+
+        local Icon = Library:GetCustomIcon(Asset)
+        if Icon then
+            return Icon
+        end
+
+        return {
+            Url = Asset,
+            ImageRectOffset = Vector2.zero,
+            ImageRectSize = Vector2.zero,
+            Custom = true,
+        }
+    end
+
+    local function CreateDynamicIslandToggle()
+        if DynamicIslandController then
+            return DynamicIslandController
+        end
+
+        local CollapsedSize = WindowInfo.DynamicIslandSize or UDim2.fromOffset(218, 46)
+        local ExpandedSize = WindowInfo.DynamicIslandExpandedSize or UDim2.fromOffset(252, 50)
+        local Island = New("TextButton", {
+            Name = "DynamicIslandToggle",
+            Active = true,
+            AnchorPoint = WindowInfo.DynamicIslandAnchorPoint or Vector2.new(0.5, 0),
+            AutoButtonColor = false,
+            BackgroundColor3 = "BackgroundColor",
+            BackgroundTransparency = math.clamp(tonumber(WindowInfo.DynamicIslandTransparency) or 0.08, 0, 1),
+            ClipsDescendants = true,
+            Position = WindowInfo.DynamicIslandPosition or UDim2.new(0.5, 0, 0, 8),
+            Size = CollapsedSize,
+            Text = "",
+            Visible = WindowInfo.ShowMobileButtons ~= false,
+            ZIndex = WindowInfo.DynamicIslandZIndex or 250,
+            Parent = ScreenGui,
+        })
+        table.insert(Library.Corners, New("UICorner", { CornerRadius = UDim.new(1, 0), Parent = Island }))
+        local OutlineStroke = Library:AddOutline(Island, {
+            Color = "AccentColor",
+            Thickness = 1.25,
+            Transparency = 0.28,
+            ShadowTransparency = 0.68,
+        })
+        local IslandGradient = Library:AddGradient(Island, {
+            Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Library.Scheme.AccentColor),
+                ColorSequenceKeypoint.new(0.55, Library:GetBetterColor(Library.Scheme.MainColor, 10)),
+                ColorSequenceKeypoint.new(1, Library.Scheme.BackgroundColor),
+            }),
+            Rotation = 22,
+            Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 0.72),
+                NumberSequenceKeypoint.new(0.5, 0.9),
+                NumberSequenceKeypoint.new(1, 0.82),
+            }),
+        })
+
+        local AssetHolder = New("Frame", {
+            AnchorPoint = Vector2.new(0, 0.5),
+            BackgroundColor3 = "MainColor",
+            BackgroundTransparency = 0.18,
+            ClipsDescendants = true,
+            Position = UDim2.new(0, 8, 0.5, 0),
+            Size = WindowInfo.DynamicIslandAssetSize or UDim2.fromOffset(30, 30),
+            ZIndex = Island.ZIndex + 2,
+            Parent = Island,
+        })
+        table.insert(Library.Corners, New("UICorner", { CornerRadius = UDim.new(1, 0), Parent = AssetHolder }))
+        Library:AddOutline(AssetHolder, {
+            Color = "AccentColor",
+            Thickness = 1,
+            Transparency = 0.42,
+            ShadowTransparency = 1,
+        })
+
+        local AssetImage = New("ImageLabel", {
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            BackgroundTransparency = 1,
+            Position = UDim2.fromScale(0.5, 0.5),
+            Size = UDim2.new(1, -7, 1, -7),
+            ZIndex = AssetHolder.ZIndex + 1,
+            Parent = AssetHolder,
+        })
+
+        local TextHolder = New("Frame", {
+            BackgroundTransparency = 1,
+            Position = UDim2.new(0, 48, 0, 6),
+            Size = UDim2.new(1, -84, 1, -12),
+            ZIndex = Island.ZIndex + 2,
+            Parent = Island,
+        })
+        New("UIListLayout", {
+            FillDirection = Enum.FillDirection.Vertical,
+            HorizontalAlignment = Enum.HorizontalAlignment.Left,
+            VerticalAlignment = Enum.VerticalAlignment.Center,
+            Padding = UDim.new(0, 1),
+            Parent = TextHolder,
+        })
+
+        local TitleLabel = New("TextLabel", {
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1, 0, 0, 17),
+            Text = WindowInfo.DynamicIslandText or WindowInfo.Title or "Obsidian",
+            TextSize = 14,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = TextHolder.ZIndex + 1,
+            Parent = TextHolder,
+        })
+        local StatusLabel = New("TextLabel", {
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1, 0, 0, 13),
+            Text = WindowInfo.DynamicIslandClosedText or WindowInfo.DynamicIslandSubtitle or "Menu closed",
+            TextSize = 11,
+            TextTransparency = 0.45,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = TextHolder.ZIndex + 1,
+            Parent = TextHolder,
+        })
+
+        local StatusDot = New("Frame", {
+            AnchorPoint = Vector2.new(1, 0.5),
+            BackgroundColor3 = "AccentColor",
+            BackgroundTransparency = 0.18,
+            Position = UDim2.new(1, -15, 0.5, 0),
+            Size = UDim2.fromOffset(8, 8),
+            ZIndex = Island.ZIndex + 2,
+            Parent = Island,
+        })
+        table.insert(Library.Corners, New("UICorner", { CornerRadius = UDim.new(1, 0), Parent = StatusDot }))
+
+        local Controller = {
+            Holder = Island,
+            AssetImage = AssetImage,
+            TitleLabel = TitleLabel,
+            StatusLabel = StatusLabel,
+            StatusDot = StatusDot,
+        }
+
+        function Controller:SetAsset(Asset)
+            local Icon = ResolveDynamicIslandAsset(Asset)
+            if not Icon then
+                AssetImage.Image = ""
+                return
+            end
+
+            AssetImage.Image = Icon.Url or ""
+            AssetImage.ImageRectOffset = Icon.ImageRectOffset or Vector2.zero
+            AssetImage.ImageRectSize = Icon.ImageRectSize or Vector2.zero
+            AssetImage.ImageColor3 = Icon.Custom and Library.Scheme.WhiteColor or Library.Scheme.AccentColor
+        end
+
+        function Controller:SetText(Text, Subtitle)
+            if Text ~= nil then
+                TitleLabel.Text = tostring(Text)
+            end
+            if Subtitle ~= nil then
+                StatusLabel.Text = tostring(Subtitle)
+            end
+        end
+
+        function Controller:SetVisible(Visible)
+            Island.Visible = Visible == true
+        end
+
+        function Controller:SetActive(Active)
+            local StatusText = Active and (WindowInfo.DynamicIslandOpenText or "Menu open")
+                or (WindowInfo.DynamicIslandClosedText or WindowInfo.DynamicIslandSubtitle or "Menu closed")
+            StatusLabel.Text = StatusText
+            StatusDot.BackgroundTransparency = Active and 0 or 0.45
+            IslandGradient.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Library.Scheme.AccentColor),
+                ColorSequenceKeypoint.new(0.6, Active and Library.Scheme.MainColor or Library.Scheme.BackgroundColor),
+                ColorSequenceKeypoint.new(1, Library.Scheme.BackgroundColor),
+            })
+            TweenService:Create(Island, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                Size = Active and ExpandedSize or CollapsedSize,
+            }):Play()
+            TweenService:Create(OutlineStroke, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                Transparency = Active and 0.12 or 0.28,
+            }):Play()
+        end
+
+        Island.MouseEnter:Connect(function()
+            TweenService:Create(Island, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                BackgroundTransparency = math.max(0, (WindowInfo.DynamicIslandTransparency or 0.08) - 0.04),
+            }):Play()
+        end)
+        Island.MouseLeave:Connect(function()
+            TweenService:Create(Island, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                BackgroundTransparency = math.clamp(tonumber(WindowInfo.DynamicIslandTransparency) or 0.08, 0, 1),
+            }):Play()
+        end)
+        Island.MouseButton1Click:Connect(function()
+            Library:Toggle()
+        end)
+
+        Library:MakeDraggable(Island, Island, true)
+        Controller:SetAsset(WindowInfo.DynamicIslandAsset)
+        Controller:SetActive(Library.Toggled)
+
+        DynamicIslandController = Controller
+        return Controller
+    end
+
     do
         FullscreenBackground.Visible = WindowInfo.FullscreenBackground == true
         FullscreenBackground.BackgroundColor3 = WindowInfo.FullscreenBackgroundColor
@@ -11452,6 +11707,42 @@ function Library:CreateWindow(WindowInfo)
             WindowGradient.Color = WindowInfo.GradientColorSequence
             WindowGradient.Rotation = WindowInfo.GradientRotation
             WindowGradient.Transparency = WindowInfo.GradientTransparency
+        end
+    end
+
+    function Window:SetDynamicIslandVisible(Visible: boolean)
+        assert(typeof(Visible) == "boolean", "Expected boolean for Visible got: " .. typeof(Visible))
+
+        WindowInfo.DynamicIsland = Visible
+        if Visible and not DynamicIslandController then
+            DynamicIslandController = CreateDynamicIslandToggle()
+        end
+        if DynamicIslandController then
+            DynamicIslandController:SetVisible(Visible)
+        end
+    end
+
+    function Window:SetDynamicIslandAsset(Asset)
+        WindowInfo.DynamicIslandAsset = Asset
+        if not DynamicIslandController then
+            DynamicIslandController = CreateDynamicIslandToggle()
+        end
+        if DynamicIslandController then
+            DynamicIslandController:SetAsset(Asset)
+        end
+    end
+
+    function Window:SetDynamicIslandText(Text: string?, Subtitle: string?)
+        assert(Text == nil or typeof(Text) == "string", "Expected string or nil for Text got: " .. typeof(Text))
+        assert(Subtitle == nil or typeof(Subtitle) == "string", "Expected string or nil for Subtitle got: " .. typeof(Subtitle))
+
+        WindowInfo.DynamicIslandText = Text or WindowInfo.DynamicIslandText
+        WindowInfo.DynamicIslandSubtitle = Subtitle or WindowInfo.DynamicIslandSubtitle
+        if not DynamicIslandController then
+            DynamicIslandController = CreateDynamicIslandToggle()
+        end
+        if DynamicIslandController then
+            DynamicIslandController:SetText(Text, Subtitle)
         end
     end
 
@@ -13824,6 +14115,9 @@ function Library:CreateWindow(WindowInfo)
         end
 
         MainFrame.Visible = Library.Toggled
+        if DynamicIslandController then
+            DynamicIslandController:SetActive(Library.Toggled)
+        end
 
         if WindowInfo.UnlockMouseWhileOpen then
             ModalElement.Modal = Library.Toggled
@@ -13958,7 +14252,23 @@ function Library:CreateWindow(WindowInfo)
         task.spawn(Library.Toggle)
     end
 
-    if Library.IsMobile then
+    if UseDynamicIslandToggle and WindowInfo.ShowMobileButtons ~= false then
+        DynamicIslandController = CreateDynamicIslandToggle()
+    end
+
+    if Library.IsMobile and UseDynamicIslandToggle and WindowInfo.ShowMobileButtons ~= false then
+        local LockButton = Library:AddDraggableButton("Lock", function(self)
+            Library.CantDragForced = not Library.CantDragForced
+            self:SetText(Library.CantDragForced and "Unlock" or "Lock")
+        end, true, true)
+
+        if WindowInfo.MobileButtonsSide == "Right" then
+            LockButton.Button.Position = UDim2.new(1, -6, 0, 6)
+            LockButton.Button.AnchorPoint = Vector2.new(1, 0)
+        end
+    end
+
+    if Library.IsMobile and not UseDynamicIslandToggle then
         local ToggleButton = Library:AddDraggableButton("Toggle", function()
             Library:Toggle()
         end, true, true)

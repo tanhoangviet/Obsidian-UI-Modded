@@ -193,6 +193,38 @@ do
             35,
             { FontColor = "e0f2fe", MainColor = "111827", AccentColor = "60a5fa", BackgroundColor = "030712", OutlineColor = "334155", GradientColor1 = "60a5fa", GradientColor2 = "7c3aed", GradientRotation = 46 },
         },
+        ["Gradient Amethyst Glass"] = {
+            36,
+            { FontColor = "f8f5ff", MainColor = "181326", AccentColor = "a78bfa", BackgroundColor = "090711", OutlineColor = "4c3a75", GradientColor1 = "a78bfa", GradientColor2 = "22d3ee", GradientRotation = 32, GradientTransparencyStart = 0.78, GradientTransparencyEnd = 0.96 },
+        },
+        ["Gradient Neon Noir"] = {
+            37,
+            { FontColor = "f8fafc", MainColor = "10151f", AccentColor = "38bdf8", BackgroundColor = "05070d", OutlineColor = "1f3b57", GradientColor1 = "38bdf8", GradientColor2 = "e879f9", GradientRotation = 40, GradientTransparencyStart = 0.8, GradientTransparencyEnd = 0.97 },
+        },
+        ["Gradient Prism Void"] = {
+            38,
+            { FontColor = "f6f0ff", MainColor = "171123", AccentColor = "c084fc", BackgroundColor = "07050e", OutlineColor = "5b3d84", GradientColor1 = "c084fc", GradientColor2 = "fb7185", GradientRotation = 24, GradientTransparencyStart = 0.82, GradientTransparencyEnd = 0.97 },
+        },
+        ["Gradient Arctic Pulse"] = {
+            39,
+            { FontColor = "f0fbff", MainColor = "10202a", AccentColor = "67e8f9", BackgroundColor = "061018", OutlineColor = "245b6a", GradientColor1 = "67e8f9", GradientColor2 = "818cf8", GradientRotation = 18, GradientTransparencyStart = 0.8, GradientTransparencyEnd = 0.96 },
+        },
+        ["Gradient Rose Quartz"] = {
+            40,
+            { FontColor = "fff7fb", MainColor = "261421", AccentColor = "f9a8d4", BackgroundColor = "10070d", OutlineColor = "6f3556", GradientColor1 = "f9a8d4", GradientColor2 = "f43f5e", GradientRotation = 34, GradientTransparencyStart = 0.81, GradientTransparencyEnd = 0.97 },
+        },
+        ["Gradient Jade Circuit"] = {
+            41,
+            { FontColor = "ecfff8", MainColor = "10221c", AccentColor = "2dd4bf", BackgroundColor = "06100d", OutlineColor = "236657", GradientColor1 = "2dd4bf", GradientColor2 = "84cc16", GradientRotation = 27, GradientTransparencyStart = 0.82, GradientTransparencyEnd = 0.97 },
+        },
+        ["Gradient Solar Flare"] = {
+            42,
+            { FontColor = "fff9ed", MainColor = "27190c", AccentColor = "fbbf24", BackgroundColor = "110906", OutlineColor = "735221", GradientColor1 = "fbbf24", GradientColor2 = "fb7185", GradientRotation = 36, GradientTransparencyStart = 0.8, GradientTransparencyEnd = 0.96 },
+        },
+        ["Gradient Deep Space"] = {
+            43,
+            { FontColor = "eef2ff", MainColor = "111428", AccentColor = "8b5cf6", BackgroundColor = "050712", OutlineColor = "38406f", GradientColor1 = "8b5cf6", GradientColor2 = "0ea5e9", GradientRotation = 44, GradientTransparencyStart = 0.79, GradientTransparencyEnd = 0.97 },
+        },
     }
 
     local function CleanHex(Value, Fallback)
