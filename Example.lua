@@ -39,6 +39,9 @@ local Window = Library:CreateWindow({
     DynamicIslandText = "mspaint",
     DynamicIslandClosedText = "Tap to open UI",
     DynamicIslandOpenText = "UI is active",
+    DynamicIslandIdleDelay = 2.2,
+    DynamicIslandIdleTransparency = 0.56,
+    DynamicIslandHoldDuration = 0.45,
 
     -- Modded visuals: background image, gradient overlay, and custom border stroke.
     BackgroundImage = RepoAsset("assets/Example.png"),

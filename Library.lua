@@ -643,13 +643,20 @@ local Templates = {
         DynamicIslandSubtitle = nil,
         DynamicIslandOpenText = nil,
         DynamicIslandClosedText = nil,
+        DynamicIslandLockedText = "Locked",
+        DynamicIslandUnlockedText = "Unlocked",
         DynamicIslandPosition = UDim2.new(0.5, 0, 0, 8),
         DynamicIslandAnchorPoint = Vector2.new(0.5, 0),
-        DynamicIslandSize = UDim2.fromOffset(218, 46),
-        DynamicIslandExpandedSize = UDim2.fromOffset(252, 50),
-        DynamicIslandAssetSize = UDim2.fromOffset(30, 30),
+        DynamicIslandSize = UDim2.fromOffset(168, 38),
+        DynamicIslandExpandedSize = UDim2.fromOffset(206, 42),
+        DynamicIslandIdleSize = UDim2.fromOffset(118, 30),
+        DynamicIslandAssetSize = UDim2.fromOffset(24, 24),
         DynamicIslandZIndex = 250,
         DynamicIslandTransparency = 0.08,
+        DynamicIslandIdleTransparency = 0.58,
+        DynamicIslandIdlePosition = UDim2.new(0.5, 0, 0, 2),
+        DynamicIslandIdleDelay = 2.35,
+        DynamicIslandHoldDuration = 0.45,
         KeybindMenuWidth = 300,
         KeybindMenuHeight = nil,
         KeybindMenuMaxHeight = 260,
@@ -11011,17 +11018,25 @@ function Library:CreateWindow(WindowInfo)
             return DynamicIslandController
         end
 
-        local CollapsedSize = WindowInfo.DynamicIslandSize or UDim2.fromOffset(218, 46)
-        local ExpandedSize = WindowInfo.DynamicIslandExpandedSize or UDim2.fromOffset(252, 50)
+        local CollapsedSize = WindowInfo.DynamicIslandSize or UDim2.fromOffset(168, 38)
+        local ExpandedSize = WindowInfo.DynamicIslandExpandedSize or UDim2.fromOffset(206, 42)
+        local IdleSize = WindowInfo.DynamicIslandIdleSize or UDim2.fromOffset(118, 30)
+        local ActivePosition = WindowInfo.DynamicIslandPosition or UDim2.new(0.5, 0, 0, 8)
+        local IdlePosition = WindowInfo.DynamicIslandIdlePosition or UDim2.new(0.5, 0, 0, 2)
+        local BaseTransparency = math.clamp(tonumber(WindowInfo.DynamicIslandTransparency) or 0.08, 0, 1)
+        local IdleTransparency = math.clamp(tonumber(WindowInfo.DynamicIslandIdleTransparency) or 0.58, 0, 1)
+        local IdleDelay = math.max(0.35, tonumber(WindowInfo.DynamicIslandIdleDelay) or 2.35)
+        local HoldDuration = math.max(0.2, tonumber(WindowInfo.DynamicIslandHoldDuration) or 0.45)
+        local IdleEnabled = WindowInfo.DynamicIslandIdle ~= false and WindowInfo.DynamicIslandIdleEnabled ~= false
         local Island = New("TextButton", {
             Name = "DynamicIslandToggle",
             Active = true,
             AnchorPoint = WindowInfo.DynamicIslandAnchorPoint or Vector2.new(0.5, 0),
             AutoButtonColor = false,
             BackgroundColor3 = "BackgroundColor",
-            BackgroundTransparency = math.clamp(tonumber(WindowInfo.DynamicIslandTransparency) or 0.08, 0, 1),
+            BackgroundTransparency = BaseTransparency,
             ClipsDescendants = true,
-            Position = WindowInfo.DynamicIslandPosition or UDim2.new(0.5, 0, 0, 8),
+            Position = ActivePosition,
             Size = CollapsedSize,
             Text = "",
             Visible = WindowInfo.ShowMobileButtons ~= false,
@@ -11054,8 +11069,8 @@ function Library:CreateWindow(WindowInfo)
             BackgroundColor3 = "MainColor",
             BackgroundTransparency = 0.18,
             ClipsDescendants = true,
-            Position = UDim2.new(0, 8, 0.5, 0),
-            Size = WindowInfo.DynamicIslandAssetSize or UDim2.fromOffset(30, 30),
+            Position = UDim2.new(0, 7, 0.5, 0),
+            Size = WindowInfo.DynamicIslandAssetSize or UDim2.fromOffset(24, 24),
             ZIndex = Island.ZIndex + 2,
             Parent = Island,
         })
@@ -11071,15 +11086,15 @@ function Library:CreateWindow(WindowInfo)
             AnchorPoint = Vector2.new(0.5, 0.5),
             BackgroundTransparency = 1,
             Position = UDim2.fromScale(0.5, 0.5),
-            Size = UDim2.new(1, -7, 1, -7),
+            Size = UDim2.new(1, -5, 1, -5),
             ZIndex = AssetHolder.ZIndex + 1,
             Parent = AssetHolder,
         })
 
         local TextHolder = New("Frame", {
             BackgroundTransparency = 1,
-            Position = UDim2.new(0, 48, 0, 6),
-            Size = UDim2.new(1, -84, 1, -12),
+            Position = UDim2.new(0, 38, 0, 5),
+            Size = UDim2.new(1, -64, 1, -10),
             ZIndex = Island.ZIndex + 2,
             Parent = Island,
         })
@@ -11093,9 +11108,9 @@ function Library:CreateWindow(WindowInfo)
 
         local TitleLabel = New("TextLabel", {
             BackgroundTransparency = 1,
-            Size = UDim2.new(1, 0, 0, 17),
+            Size = UDim2.new(1, 0, 0, 15),
             Text = WindowInfo.DynamicIslandText or WindowInfo.Title or "Obsidian",
-            TextSize = 14,
+            TextSize = 13,
             TextTruncate = Enum.TextTruncate.AtEnd,
             TextXAlignment = Enum.TextXAlignment.Left,
             ZIndex = TextHolder.ZIndex + 1,
@@ -11103,9 +11118,9 @@ function Library:CreateWindow(WindowInfo)
         })
         local StatusLabel = New("TextLabel", {
             BackgroundTransparency = 1,
-            Size = UDim2.new(1, 0, 0, 13),
+            Size = UDim2.new(1, 0, 0, 12),
             Text = WindowInfo.DynamicIslandClosedText or WindowInfo.DynamicIslandSubtitle or "Menu closed",
-            TextSize = 11,
+            TextSize = 10,
             TextTransparency = 0.45,
             TextTruncate = Enum.TextTruncate.AtEnd,
             TextXAlignment = Enum.TextXAlignment.Left,
@@ -11117,8 +11132,8 @@ function Library:CreateWindow(WindowInfo)
             AnchorPoint = Vector2.new(1, 0.5),
             BackgroundColor3 = "AccentColor",
             BackgroundTransparency = 0.18,
-            Position = UDim2.new(1, -15, 0.5, 0),
-            Size = UDim2.fromOffset(8, 8),
+            Position = UDim2.new(1, -11, 0.5, 0),
+            Size = UDim2.fromOffset(6, 6),
             ZIndex = Island.ZIndex + 2,
             Parent = Island,
         })
@@ -11131,6 +11146,87 @@ function Library:CreateWindow(WindowInfo)
             StatusLabel = StatusLabel,
             StatusDot = StatusDot,
         }
+        local IdleToken = 0
+        local PressToken = 0
+        local IsIdle = false
+        local IsPressing = false
+        local LongPressTriggered = false
+
+        local function SetIslandIdleState(Idle, Instant)
+            IsIdle = Idle == true
+
+            local TargetSize = IsIdle and IdleSize or (Library.Toggled and ExpandedSize or CollapsedSize)
+            local TargetPosition = IsIdle and IdlePosition or ActivePosition
+            local TargetTransparency = IsIdle and IdleTransparency or BaseTransparency
+            local TweenTime = Instant and 0 or (IsIdle and 0.28 or 0.2)
+
+            if Instant then
+                Island.Size = TargetSize
+                Island.Position = TargetPosition
+                Island.BackgroundTransparency = TargetTransparency
+                OutlineStroke.Transparency = IsIdle and 0.52 or (Library.Toggled and 0.12 or 0.28)
+                TitleLabel.TextTransparency = IsIdle and 0.2 or 0
+                StatusLabel.TextTransparency = IsIdle and 1 or 0.45
+                AssetHolder.BackgroundTransparency = IsIdle and 0.32 or 0.18
+                StatusDot.BackgroundTransparency = IsIdle and 0.38 or (Library.Toggled and 0 or 0.45)
+                return
+            end
+
+            TweenService:Create(Island, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                BackgroundTransparency = TargetTransparency,
+                Position = TargetPosition,
+                Size = TargetSize,
+            }):Play()
+            TweenService:Create(OutlineStroke, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                Transparency = IsIdle and 0.52 or (Library.Toggled and 0.12 or 0.28),
+            }):Play()
+            TweenService:Create(TitleLabel, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                TextTransparency = IsIdle and 0.2 or 0,
+            }):Play()
+            TweenService:Create(StatusLabel, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                TextTransparency = IsIdle and 1 or 0.45,
+            }):Play()
+            TweenService:Create(AssetHolder, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                BackgroundTransparency = IsIdle and 0.32 or 0.18,
+            }):Play()
+            TweenService:Create(StatusDot, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                BackgroundTransparency = IsIdle and 0.38 or (Library.Toggled and 0 or 0.45),
+            }):Play()
+        end
+
+        function Controller:Wake()
+            IdleToken += 1
+            if IsIdle then
+                SetIslandIdleState(false)
+            end
+        end
+
+        function Controller:ScheduleIdle()
+            if not IdleEnabled then
+                return
+            end
+
+            IdleToken += 1
+            local CurrentToken = IdleToken
+            task.delay(IdleDelay, function()
+                if CurrentToken ~= IdleToken or IsPressing or not Island.Visible then
+                    return
+                end
+
+                SetIslandIdleState(true)
+            end)
+        end
+
+        function Controller:SetLocked(Locked)
+            local Text = Locked and (WindowInfo.DynamicIslandLockedText or "Locked")
+                or (WindowInfo.DynamicIslandUnlockedText or "Unlocked")
+            StatusLabel.Text = Text
+            StatusLabel.TextTransparency = 0.2
+            StatusDot.BackgroundColor3 = Locked and Color3.fromRGB(255, 194, 92) or Library.Scheme.AccentColor
+            StatusDot.BackgroundTransparency = 0
+            Controller:Wake()
+            Controller:ScheduleIdle()
+        end
 
         function Controller:SetAsset(Asset)
             local Icon = ResolveDynamicIslandAsset(Asset)
@@ -11159,40 +11255,79 @@ function Library:CreateWindow(WindowInfo)
         end
 
         function Controller:SetActive(Active)
-            local StatusText = Active and (WindowInfo.DynamicIslandOpenText or "Menu open")
-                or (WindowInfo.DynamicIslandClosedText or WindowInfo.DynamicIslandSubtitle or "Menu closed")
+            Controller:Wake()
+
+            local StatusText = Library.CantDragForced and (WindowInfo.DynamicIslandLockedText or "Locked")
+                or (
+                    Active and (WindowInfo.DynamicIslandOpenText or "Menu open")
+                    or (WindowInfo.DynamicIslandClosedText or WindowInfo.DynamicIslandSubtitle or "Menu closed")
+                )
             StatusLabel.Text = StatusText
+            StatusDot.BackgroundColor3 = Library.CantDragForced and Color3.fromRGB(255, 194, 92) or Library.Scheme.AccentColor
             StatusDot.BackgroundTransparency = Active and 0 or 0.45
             IslandGradient.Color = ColorSequence.new({
                 ColorSequenceKeypoint.new(0, Library.Scheme.AccentColor),
                 ColorSequenceKeypoint.new(0.6, Active and Library.Scheme.MainColor or Library.Scheme.BackgroundColor),
                 ColorSequenceKeypoint.new(1, Library.Scheme.BackgroundColor),
             })
-            TweenService:Create(Island, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                Size = Active and ExpandedSize or CollapsedSize,
-            }):Play()
-            TweenService:Create(OutlineStroke, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                Transparency = Active and 0.12 or 0.28,
-            }):Play()
+            SetIslandIdleState(false)
+            Controller:ScheduleIdle()
         end
 
         Island.MouseEnter:Connect(function()
+            Controller:Wake()
             TweenService:Create(Island, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                BackgroundTransparency = math.max(0, (WindowInfo.DynamicIslandTransparency or 0.08) - 0.04),
+                BackgroundTransparency = math.max(0, BaseTransparency - 0.04),
             }):Play()
         end)
         Island.MouseLeave:Connect(function()
+            Controller:ScheduleIdle()
             TweenService:Create(Island, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                BackgroundTransparency = math.clamp(tonumber(WindowInfo.DynamicIslandTransparency) or 0.08, 0, 1),
+                BackgroundTransparency = IsIdle and IdleTransparency or BaseTransparency,
             }):Play()
         end)
-        Island.MouseButton1Click:Connect(function()
-            Library:Toggle()
+        Island.InputBegan:Connect(function(Input: InputObject)
+            if not IsClickInput(Input) then
+                return
+            end
+
+            Controller:Wake()
+            IsPressing = true
+            LongPressTriggered = false
+            PressToken += 1
+            local CurrentPressToken = PressToken
+
+            task.delay(HoldDuration, function()
+                if not IsPressing or CurrentPressToken ~= PressToken or not Island.Visible then
+                    return
+                end
+
+                LongPressTriggered = true
+                Library.CantDragForced = not Library.CantDragForced
+                Controller:SetLocked(Library.CantDragForced)
+            end)
+        end)
+        Island.InputEnded:Connect(function(Input: InputObject)
+            if not IsClickInput(Input) then
+                return
+            end
+
+            local ShouldToggle = IsPressing and not LongPressTriggered
+            IsPressing = false
+            LongPressTriggered = false
+            PressToken += 1
+
+            if ShouldToggle then
+                Library:Toggle()
+            else
+                Controller:ScheduleIdle()
+            end
         end)
 
         Library:MakeDraggable(Island, Island, true)
         Controller:SetAsset(WindowInfo.DynamicIslandAsset)
         Controller:SetActive(Library.Toggled)
+        Controller:ScheduleIdle()
 
         DynamicIslandController = Controller
         return Controller
@@ -11719,6 +11854,9 @@ function Library:CreateWindow(WindowInfo)
         end
         if DynamicIslandController then
             DynamicIslandController:SetVisible(Visible)
+            if Visible then
+                DynamicIslandController:ScheduleIdle()
+            end
         end
     end
 
@@ -14260,6 +14398,9 @@ function Library:CreateWindow(WindowInfo)
         local LockButton = Library:AddDraggableButton("Lock", function(self)
             Library.CantDragForced = not Library.CantDragForced
             self:SetText(Library.CantDragForced and "Unlock" or "Lock")
+            if DynamicIslandController then
+                DynamicIslandController:SetLocked(Library.CantDragForced)
+            end
         end, true, true)
 
         if WindowInfo.MobileButtonsSide == "Right" then
