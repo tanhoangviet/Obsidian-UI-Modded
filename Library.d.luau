@@ -486,23 +486,6 @@ export type ColorPickerInfo = {
     Changed: ((Color3) -> ())?,
 }
 
-export type LoadingInfo = {
-    Title: string?,
-    Icon: string | number?,
-    IconSize: UDim2?,
-    LoadingIcon: string | number?,
-    LoadingIconColor: Color3?,
-    LoadingIconTweenTime: number?,
-    CurrentStep: number?,
-    TotalSteps: number?,
-    ShowSidebar: boolean?,
-    AutoResizeHeight: boolean?,
-    WindowWidth: number?,
-    WindowHeight: number?,
-    ContentWidth: number?,
-    SidebarWidth: number?,
-}
-
 --// Addon Types
 export type KeyPicker = {
     Text: string,
@@ -1362,66 +1345,6 @@ export type KeyTab = BaseGroupbox & {
     SetVisible: (self: KeyTab, Visible: boolean) -> (),
 }
 
-export type LoadingErrorButtonInfo = {
-    Title: string?,
-    Variant: "Primary" | "Secondary" | "Destructive" | "Ghost"?,
-    Callback: ((Loading) -> ())?,
-}
-
-export type LoadingSidebar = BaseGroupbox & {
-    Elements: { [number]: Element },
-    DependencyBoxes: { [number]: DependencyBox },
-    Tabboxes: { [string]: Tabbox },
-    BoxHolder: ScrollingFrame,
-    Container: ScrollingFrame,
-    Tab: {
-        Elements: { [number]: Element },
-        DependencyBoxes: { [number]: DependencyBox },
-        DependencyGroupboxes: { [number]: DependencyGroupbox },
-        Tabboxes: { [string]: Tabbox },
-    },
-
-    Resize: (self: LoadingSidebar) -> (),
-}
-
-export type Loading = {
-    CurrentStep: number,
-    TotalSteps: number,
-    ShowSidebar: boolean,
-    AutoResizeHeight: boolean,
-    IsError: boolean,
-    Destroyed: boolean,
-    WindowWidth: number,
-    WindowHeight: number,
-    BaseWindowHeight: number,
-    WindowErrorHeight: number,
-    ContentWidth: number,
-    SidebarWidth: number,
-    ScreenGui: ScreenGui,
-    Sidebar: LoadingSidebar,
-
-    UpdateLayout: (self: Loading) -> (),
-    RecalculateLoadingHeight: (self: Loading) -> (),
-    SetMessage: (self: Loading, Text: string) -> (),
-    SetDescription: (self: Loading, Text: string) -> (),
-    SetLoadingIcon: (self: Loading, Icon: string | number) -> (),
-    SetLoadingIconTweenTime: (self: Loading, TweenTime: number) -> (),
-    SetLoadingIconColor: (self: Loading, Color: Color3) -> (),
-    SetCurrentStep: (self: Loading, Step: number) -> (),
-    SetTotalSteps: (self: Loading, Steps: number) -> (),
-    SetWindowHeight: (self: Loading, Height: number) -> (),
-    SetWindowWidth: (self: Loading, Width: number) -> (),
-    SetContentWidth: (self: Loading, Width: number) -> (),
-    SetSidebarWidth: (self: Loading, Width: number) -> (),
-    ShowSidebarPage: (self: Loading, Bool: boolean) -> (),
-    ShowErrorPage: (self: Loading, Enabled: boolean) -> (),
-    RecalculateErrorHeight: (self: Loading) -> (),
-    SetErrorMessage: (self: Loading, Text: string) -> (),
-    SetErrorButtons: (self: Loading, Buttons: { [string]: LoadingErrorButtonInfo }) -> (),
-    Destroy: (self: Loading) -> (),
-    Continue: (self: Loading) -> (),
-}
-
 export type DialogButtonInfo = {
     Title: string,
     Variant: "Primary" | "Secondary" | "Destructive" | "Ghost"?,
@@ -2086,7 +2009,6 @@ export type Library = {
         Time: number?,
         SoundId: string | number?
     ) -> Notification,
-    CreateLoading: (self: Library, LoadingInfo: LoadingInfo) -> Loading,
     CreateWindow: (
         self: Library,
         WindowInfo: {
