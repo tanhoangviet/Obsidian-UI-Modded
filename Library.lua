@@ -9,6 +9,7 @@ local UserInputService: UserInputService = cloneref(game:GetService("UserInputSe
 local TextService: TextService = cloneref(game:GetService("TextService"))
 local Teams: Teams = cloneref(game:GetService("Teams"))
 local TweenService: TweenService = cloneref(game:GetService("TweenService"))
+local GuiService: GuiService = cloneref(game:GetService("GuiService"))
 
 local getgenv = getgenv or function()
     return shared
@@ -645,6 +646,8 @@ local Templates = {
         DynamicIslandClosedText = nil,
         DynamicIslandLockedText = "Locked",
         DynamicIslandUnlockedText = "Unlocked",
+        DynamicIslandUseTopbarHeight = true,
+        DynamicIslandHeight = nil,
         DynamicIslandPosition = UDim2.new(0.5, 0, 0, 8),
         DynamicIslandAnchorPoint = Vector2.new(0.5, 0),
         DynamicIslandSize = UDim2.fromOffset(168, 38),
@@ -657,6 +660,8 @@ local Templates = {
         DynamicIslandIdlePosition = UDim2.new(0.5, 0, 0, 2),
         DynamicIslandIdleDelay = 2.35,
         DynamicIslandHoldDuration = 0.45,
+        DynamicIslandDraggable = false,
+        DynamicIslandShowMobileLockButton = false,
         KeybindMenuWidth = 300,
         KeybindMenuHeight = nil,
         KeybindMenuMaxHeight = 260,
@@ -11018,11 +11023,49 @@ function Library:CreateWindow(WindowInfo)
             return DynamicIslandController
         end
 
-        local CollapsedSize = WindowInfo.DynamicIslandSize or UDim2.fromOffset(168, 38)
-        local ExpandedSize = WindowInfo.DynamicIslandExpandedSize or UDim2.fromOffset(206, 42)
-        local IdleSize = WindowInfo.DynamicIslandIdleSize or UDim2.fromOffset(118, 30)
-        local ActivePosition = WindowInfo.DynamicIslandPosition or UDim2.new(0.5, 0, 0, 8)
-        local IdlePosition = WindowInfo.DynamicIslandIdlePosition or UDim2.new(0.5, 0, 0, 2)
+        local UseTopbarHeight = WindowInfo.DynamicIslandUseTopbarHeight ~= false
+        local function GetTopbarMetrics()
+            local TopbarY = 0
+            local TopbarHeight = Library.IsMobile and 54 or 36
+
+            local TopbarSuccess, TopbarInset = pcall(function()
+                return GuiService.TopbarInset
+            end)
+            if TopbarSuccess and typeof(TopbarInset) == "Rect" then
+                TopbarY = math.max(0, TopbarInset.Min.Y)
+                TopbarHeight = math.max(TopbarHeight, TopbarInset.Max.Y - TopbarInset.Min.Y)
+            else
+                local InsetSuccess, TopLeftInset = pcall(function()
+                    return GuiService:GetGuiInset()
+                end)
+                if InsetSuccess and typeof(TopLeftInset) == "Vector2" then
+                    TopbarHeight = math.max(TopbarHeight, TopLeftInset.Y)
+                end
+            end
+
+            return TopbarY, math.floor((tonumber(WindowInfo.DynamicIslandHeight) or TopbarHeight) + 0.5)
+        end
+
+        local TopbarY, TopbarHeight = GetTopbarMetrics()
+        local function ApplyIslandHeight(Size, DefaultWidth)
+            if typeof(Size) ~= "UDim2" then
+                return UDim2.fromOffset(DefaultWidth, TopbarHeight)
+            end
+
+            local WidthOffset = Size.X.Offset ~= 0 and Size.X.Offset or DefaultWidth
+            local HeightOffset = UseTopbarHeight and TopbarHeight or (Size.Y.Offset ~= 0 and Size.Y.Offset or TopbarHeight)
+            return UDim2.new(Size.X.Scale, WidthOffset, 0, HeightOffset)
+        end
+
+        local CollapsedSize = ApplyIslandHeight(WindowInfo.DynamicIslandSize, 168)
+        local ExpandedSize = ApplyIslandHeight(WindowInfo.DynamicIslandExpandedSize, 206)
+        local IdleSize = ApplyIslandHeight(WindowInfo.DynamicIslandIdleSize, 118)
+        local ActivePosition = if UseTopbarHeight
+            then UDim2.new(0.5, 0, 0, TopbarY)
+            else (WindowInfo.DynamicIslandPosition or UDim2.new(0.5, 0, 0, 8))
+        local IdlePosition = if UseTopbarHeight
+            then UDim2.new(0.5, 0, 0, TopbarY - math.floor(TopbarHeight * 0.42))
+            else (WindowInfo.DynamicIslandIdlePosition or UDim2.new(0.5, 0, 0, 2))
         local BaseTransparency = math.clamp(tonumber(WindowInfo.DynamicIslandTransparency) or 0.08, 0, 1)
         local IdleTransparency = math.clamp(tonumber(WindowInfo.DynamicIslandIdleTransparency) or 0.58, 0, 1)
         local IdleDelay = math.max(0.35, tonumber(WindowInfo.DynamicIslandIdleDelay) or 2.35)
@@ -11041,7 +11084,7 @@ function Library:CreateWindow(WindowInfo)
             Text = "",
             Visible = WindowInfo.ShowMobileButtons ~= false,
             ZIndex = WindowInfo.DynamicIslandZIndex or 250,
-            Parent = ScreenGui,
+            Parent = FloatingSpritesGui,
         })
         table.insert(Library.Corners, New("UICorner", { CornerRadius = UDim.new(1, 0), Parent = Island }))
         local OutlineStroke = Library:AddOutline(Island, {
@@ -11274,6 +11317,11 @@ function Library:CreateWindow(WindowInfo)
             Controller:ScheduleIdle()
         end
 
+        local function IsIslandPressInput(Input: InputObject, State: Enum.UserInputState)
+            return IsMouseInput(Input)
+                and Input.UserInputState == State
+        end
+
         Island.MouseEnter:Connect(function()
             Controller:Wake()
             TweenService:Create(Island, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
@@ -11287,7 +11335,7 @@ function Library:CreateWindow(WindowInfo)
             }):Play()
         end)
         Island.InputBegan:Connect(function(Input: InputObject)
-            if not IsClickInput(Input) then
+            if not IsIslandPressInput(Input, Enum.UserInputState.Begin) then
                 return
             end
 
@@ -11308,7 +11356,7 @@ function Library:CreateWindow(WindowInfo)
             end)
         end)
         Island.InputEnded:Connect(function(Input: InputObject)
-            if not IsClickInput(Input) then
+            if not IsIslandPressInput(Input, Enum.UserInputState.End) then
                 return
             end
 
@@ -11324,7 +11372,9 @@ function Library:CreateWindow(WindowInfo)
             end
         end)
 
-        Library:MakeDraggable(Island, Island, true)
+        if WindowInfo.DynamicIslandDraggable == true then
+            Library:MakeDraggable(Island, Island, true, true)
+        end
         Controller:SetAsset(WindowInfo.DynamicIslandAsset)
         Controller:SetActive(Library.Toggled)
         Controller:ScheduleIdle()
@@ -14394,7 +14444,12 @@ function Library:CreateWindow(WindowInfo)
         DynamicIslandController = CreateDynamicIslandToggle()
     end
 
-    if Library.IsMobile and UseDynamicIslandToggle and WindowInfo.ShowMobileButtons ~= false then
+    if
+        Library.IsMobile
+        and UseDynamicIslandToggle
+        and WindowInfo.ShowMobileButtons ~= false
+        and WindowInfo.DynamicIslandShowMobileLockButton == true
+    then
         local LockButton = Library:AddDraggableButton("Lock", function(self)
             Library.CantDragForced = not Library.CantDragForced
             self:SetText(Library.CantDragForced and "Unlock" or "Lock")
