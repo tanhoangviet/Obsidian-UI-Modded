@@ -10237,7 +10237,7 @@ function Library:Notify(...)
 
     local NotifyOnLeft = Library.NotifySide:lower() == "left"
     local AccentColor = Data.AccentColor or Data.IconColor or "AccentColor"
-    local BaseCardTransparency = math.clamp(tonumber(Data.BackgroundTransparency) or 0.04, 0, 1)
+    local BaseCardTransparency = math.clamp(tonumber(Data.BackgroundTransparency) or 0, 0, 1)
     local TargetWidth = tonumber(Data.Width) or (Library.IsMobile and 286 or 322)
 
     local FakeBackground = New("Frame", {
@@ -10282,27 +10282,8 @@ function Library:Notify(...)
             ColorSequenceKeypoint.new(1, Library.Scheme.MainColor),
         }),
         Rotation = 14,
-        Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0, 0.02),
-            NumberSequenceKeypoint.new(0.72, 0.12),
-            NumberSequenceKeypoint.new(1, 0.04),
-        }),
+        Transparency = NumberSequence.new(0),
     })
-
-    local AccentRail = New("Frame", {
-        BackgroundColor3 = AccentColor,
-        BorderSizePixel = 0,
-        Size = UDim2.new(0, 3, 1, 0),
-        ZIndex = Holder.ZIndex + 2,
-        Parent = Holder,
-    })
-    table.insert(
-        Library.Corners,
-        New("UICorner", {
-            CornerRadius = UDim.new(1, 0),
-            Parent = AccentRail,
-        })
-    )
 
     local Content = New("Frame", {
         AutomaticSize = Enum.AutomaticSize.Y,
@@ -10332,49 +10313,26 @@ function Library:Notify(...)
         Parent = Content,
     })
 
-    local IconTile
     local IconLabel
     local IconName = Data.BigIcon or Data.Icon
     local ParsedIcon = IconName and Library:GetCustomIcon(IconName)
     if ParsedIcon then
-        IconTile = New("Frame", {
-            BackgroundColor3 = AccentColor,
-            BackgroundTransparency = 0.82,
-            Position = UDim2.fromOffset(0, 1),
-            Size = UDim2.fromOffset(30, 30),
-            ZIndex = Header.ZIndex + 1,
-            Parent = Header,
-        })
-        table.insert(
-            Library.Corners,
-            New("UICorner", {
-                CornerRadius = UDim.new(0, 8),
-                Parent = IconTile,
-            })
-        )
-        Library:AddOutline(IconTile, {
-            Color = AccentColor,
-            Transparency = 0.56,
-            ShadowTransparency = 1,
-        })
-
         IconLabel = New("ImageLabel", {
-            AnchorPoint = Vector2.new(0.5, 0.5),
             BackgroundTransparency = 1,
             Image = ParsedIcon.Url,
             ImageColor3 = ParsedIcon.Custom and "WhiteColor" or (Data.IconColor or AccentColor),
             ImageRectOffset = ParsedIcon.ImageRectOffset,
             ImageRectSize = ParsedIcon.ImageRectSize,
-            Position = UDim2.fromScale(0.5, 0.5),
-            Size = UDim2.fromOffset(17, 17),
-            ZIndex = IconTile.ZIndex + 1,
-            Parent = IconTile,
+            Position = UDim2.fromOffset(3, 6),
+            Size = UDim2.fromOffset(20, 20),
+            ZIndex = Header.ZIndex + 1,
+            Parent = Header,
         })
     end
 
     local CloseButton
     local CloseWidth = if Data.CloseButton ~= false and Data.Dismissible ~= false then 28 else 0
-    local TextLeftOffset = IconTile and 40 or 0
+    local TextLeftOffset = IconLabel and 31 or 0
     local HeaderText = New("Frame", {
         BackgroundTransparency = 1,
         Position = UDim2.fromOffset(TextLeftOffset, 0),
@@ -10656,12 +10614,9 @@ function Library:Notify(...)
             BackgroundTransparency = 1,
             Position = NotifyOnLeft and UDim2.new(-1, -10, 0, 0) or UDim2.new(1, 10, 0, 0),
         }):Play()
-        TweenService:Create(AccentRail, Library.NotifyTweenInfo, {
-            BackgroundTransparency = 1,
-        }):Play()
-        if IconTile then
-            TweenService:Create(IconTile, Library.NotifyTweenInfo, {
-                BackgroundTransparency = 1,
+        if IconLabel then
+            TweenService:Create(IconLabel, Library.NotifyTweenInfo, {
+                ImageTransparency = 1,
             }):Play()
         end
         if HolderOutline then
@@ -10706,9 +10661,6 @@ function Library:Notify(...)
     }):Play()
     TweenService:Create(HolderScale, Library.NotifyTweenInfo, {
         Scale = 1,
-    }):Play()
-    TweenService:Create(AccentRail, Library.NotifyTweenInfo, {
-        BackgroundTransparency = 0,
     }):Play()
 
     task.delay(Library.NotifyTweenInfo.Time, function()
