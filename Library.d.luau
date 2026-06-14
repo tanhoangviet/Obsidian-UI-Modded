@@ -1096,22 +1096,20 @@ export type BaseGroupbox = {
     AddButton: (self: Groupbox, Info: ButtonInfo | string, Func: (() -> ())?, Idx: string?) -> Button,
     AddCustomFontLabel: (
         self: Groupbox,
-        Info:
-            | {
-                Text: string?,
-                Font: CustomFont?,
-                Size: number?,
-                Height: number?,
-                TextSize: number?,
-                TextColor3: Color3?,
-                Color: Color3?,
-                TextXAlignment: Enum.TextXAlignment?,
-                TextYAlignment: Enum.TextYAlignment?,
-                TextWrapped: boolean?,
-                DoesWrap: boolean?,
-                Visible: boolean?,
-            }
-            | string,
+        Info: | {
+            Text: string?,
+            Font: CustomFont?,
+            Size: number?,
+            Height: number?,
+            TextSize: number?,
+            TextColor3: Color3?,
+            Color: Color3?,
+            TextXAlignment: Enum.TextXAlignment?,
+            TextYAlignment: Enum.TextYAlignment?,
+            TextWrapped: boolean?,
+            DoesWrap: boolean?,
+            Visible: boolean?,
+        } | string,
         Font: CustomFont?,
         Idx: string?
     ) -> CustomFontText,
@@ -1685,9 +1683,14 @@ export type Window = {
     SetSidebarWidth: (self: Window, Width: number) -> (),
     AddTab: (
         self: Window,
-        Info:
-            | { Name: string, Icon: string?, Description: string?, ShowInTabHolder: boolean?, Hidden: boolean?, Visible: boolean? }
-            | string,
+        Info: | {
+            Name: string,
+            Icon: string?,
+            Description: string?,
+            ShowInTabHolder: boolean?,
+            Hidden: boolean?,
+            Visible: boolean?,
+        } | string,
         Icon: string?,
         Description: string?
     ) -> Tab,
@@ -1799,6 +1802,8 @@ export type Window = {
             ShadowColor: (Color3 | string)?,
             ShadowThickness: number?,
             ShadowTransparency: number?,
+            GlowColor: (Color3 | string)?,
+            GlowTransparency: number?,
         }?
     ) -> (),
     SetTabsMode: (self: Window, Mode: "Sidebar" | "Topbar") -> (),
@@ -1880,6 +1885,29 @@ export type Library = {
             ShadowTransparency: number?,
         }?
     ) -> (UIStroke, UIStroke),
+    AddShadowGlow: (
+        self: Library,
+        Frame: GuiObject,
+        Info: {
+            Enabled: boolean?,
+            Name: string?,
+            Color: (Color3 | string)?,
+            Transparency: number?,
+            Size: number?,
+            Thickness: number?,
+            Padding: number?,
+            Offset: Vector2?,
+            OffsetX: number?,
+            OffsetY: number?,
+            Image: string?,
+            AssetName: string?,
+            ForceRedownload: boolean?,
+            SliceCenter: Rect?,
+            SliceScale: number?,
+            ZIndex: number?,
+            Parent: Instance?,
+        }?
+    ) -> (ImageLabel?, (() -> ())?),
     AddGradient: (
         self: Library,
         Frame: GuiObject,
@@ -1950,7 +1978,13 @@ export type Library = {
     GetBetterColor: (self: Library, Color: Color3, Add: number) -> Color3,
     GetDarkerColor: (self: Library, Color: Color3) -> Color3,
     GetKeyString: (self: Library, KeyCode: Enum.KeyCode) -> string,
-    GetTextBounds: (self: Library, Text: string, Font: Font | CustomFont, Size: number, Width: number?) -> (number, number),
+    GetTextBounds: (
+        self: Library,
+        Text: string,
+        Font: Font | CustomFont,
+        Size: number,
+        Width: number?
+    ) -> (number, number),
     DownloadFont: (self: Library, Url: string, Options: { [string]: any }?) -> CustomFont,
     RegisterCustomFont: (self: Library, FontInfo: { [string]: any }) -> CustomFont,
     MouseIsOverFrame: (self: Library, Frame: GuiObject, Mouse: Vector2) -> boolean,
@@ -1970,9 +2004,8 @@ export type Library = {
     AddDraggableMenu: (self: Library, Name: string, Info: DraggableMenuInfo?) -> (Frame, ScrollingFrame),
     SetKeybindMenuSize: (self: Library, Width: number?, Height: number?) -> (),
     AddKeybindMenuButton: (self: Library, Info: KeybindMenuButtonInfo | string) -> KeybindMenuButton,
-    AddKeybindMenuToggle: (
-        (self: Library, Idx: string, Info: KeybindMenuToggleInfo) -> KeybindMenuToggle
-    ) & ((self: Library, Info: KeybindMenuToggleInfo) -> KeybindMenuToggle),
+    AddKeybindMenuToggle: ((self: Library, Idx: string, Info: KeybindMenuToggleInfo) -> KeybindMenuToggle)
+        & ((self: Library, Info: KeybindMenuToggleInfo) -> KeybindMenuToggle),
     SetWatermarkVisibility: (self: Library, Visible: boolean) -> (),
     SetWatermark: (self: Library, Text: string) -> (),
     AddContextMenu: (
@@ -2039,6 +2072,18 @@ export type Library = {
             ShadowColor: Color3 | string?,
             ShadowThickness: number?,
             ShadowTransparency: number?,
+            WindowShadow: boolean?,
+            WindowShadowColor: Color3 | string?,
+            WindowShadowTransparency: number?,
+            WindowShadowSize: number?,
+            WindowShadowOffset: Vector2?,
+            WindowShadowImage: string?,
+            WindowGlow: boolean?,
+            WindowGlowColor: Color3 | string?,
+            WindowGlowTransparency: number?,
+            WindowGlowSize: number?,
+            WindowGlowOffset: Vector2?,
+            WindowGlowImage: string?,
             TabsMode: "Sidebar" | "Topbar"?,
             TabStyle: "Default" | "Card"?,
             FullscreenBackground: boolean?,
@@ -2102,6 +2147,18 @@ export type Library = {
             DynamicIslandIdleTransparency: number?,
             DynamicIslandGlassTransparency: number?,
             DynamicIslandBorderThickness: number?,
+            DynamicIslandShadow: boolean?,
+            DynamicIslandShadowColor: Color3 | string?,
+            DynamicIslandShadowTransparency: number?,
+            DynamicIslandShadowSize: number?,
+            DynamicIslandShadowOffset: Vector2?,
+            DynamicIslandShadowImage: string?,
+            DynamicIslandGlow: boolean?,
+            DynamicIslandGlowColor: Color3 | string?,
+            DynamicIslandGlowTransparency: number?,
+            DynamicIslandGlowSize: number?,
+            DynamicIslandGlowOffset: Vector2?,
+            DynamicIslandGlowImage: string?,
             DynamicIslandHideContentWhenIdle: boolean?,
             DynamicIslandGradientAnimation: boolean?,
             DynamicIslandGradientAnimationSpeed: number?,

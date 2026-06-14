@@ -263,6 +263,14 @@ local CustomImageManagerAssets = {
 
         Id = nil,
     },
+
+    SoftGlow = {
+        RobloxId = 0,
+        Path = "Obsidian/assets/SoftGlow.png",
+        URL = BaseURL .. "assets/SoftGlow.png",
+
+        Id = nil,
+    },
 }
 do
     local function RecursiveCreatePath(Path: string, IsFile: boolean?)
@@ -634,6 +642,18 @@ local Templates = {
         ShadowColor = "DarkColor",
         ShadowThickness = 1.5,
         ShadowTransparency = 0,
+        WindowShadow = true,
+        WindowShadowColor = "DarkColor",
+        WindowShadowTransparency = 0.58,
+        WindowShadowSize = 28,
+        WindowShadowOffset = Vector2.new(0, 8),
+        WindowShadowImage = nil,
+        WindowGlow = false,
+        WindowGlowColor = "WhiteColor",
+        WindowGlowTransparency = 0.88,
+        WindowGlowSize = 18,
+        WindowGlowOffset = Vector2.new(0, 0),
+        WindowGlowImage = nil,
         TabsMode = "Sidebar", -- Sidebar, Topbar
         TabStyle = "Default", -- Default, Card
         FullscreenBackground = false,
@@ -664,7 +684,7 @@ local Templates = {
         DynamicIslandUnlockedText = "Unlocked",
         DynamicIslandUseTopbarHeight = true,
         DynamicIslandHeight = nil,
-        DynamicIslandPosition = UDim2.new(0.5, 0, 0, 8),
+        DynamicIslandPosition = UDim2.new(0.5, 0, 0, 15),
         DynamicIslandAnchorPoint = Vector2.new(0.5, 0),
         DynamicIslandSize = UDim2.fromOffset(120, 36),
         DynamicIslandExpandedSize = UDim2.fromOffset(146, 36),
@@ -672,7 +692,7 @@ local Templates = {
         DynamicIslandScale = 0.75,
         DynamicIslandIdleScale = 0.75,
         DynamicIslandTopbarHeightScale = 0.75,
-        DynamicIslandTopOffset = 4,
+        DynamicIslandTopOffset = 15,
         DynamicIslandMinHeight = nil,
         DynamicIslandMaxHeight = nil,
         DynamicIslandCornerRadius = nil,
@@ -685,6 +705,18 @@ local Templates = {
         DynamicIslandIdleTransparency = 0.16,
         DynamicIslandGlassTransparency = 0.88,
         DynamicIslandBorderThickness = 1.35,
+        DynamicIslandShadow = true,
+        DynamicIslandShadowColor = "DarkColor",
+        DynamicIslandShadowTransparency = 0.5,
+        DynamicIslandShadowSize = 13,
+        DynamicIslandShadowOffset = Vector2.new(0, 4),
+        DynamicIslandShadowImage = nil,
+        DynamicIslandGlow = true,
+        DynamicIslandGlowColor = "WhiteColor",
+        DynamicIslandGlowTransparency = 0.86,
+        DynamicIslandGlowSize = 8,
+        DynamicIslandGlowOffset = Vector2.new(0, 0),
+        DynamicIslandGlowImage = nil,
         DynamicIslandHideContentWhenIdle = true,
         DynamicIslandGradientAnimation = true,
         DynamicIslandGradientAnimationSpeed = 2.8,
@@ -1093,8 +1125,7 @@ local function UpdateBackgroundImageSurfaces()
             continue
         end
 
-        Instance.BackgroundTransparency =
-            GetBackgroundImageSurfaceTransparency(Info.DefaultTransparency, Info.Layer)
+        Instance.BackgroundTransparency = GetBackgroundImageSurfaceTransparency(Info.DefaultTransparency, Info.Layer)
     end
 end
 
@@ -1634,7 +1665,8 @@ function Library:DownloadImage(Url: string, Info)
     local FileName = GetUrlFileName(Url, Info.FileName or Info.Name, Info.Extension)
     local AssetName = SanitizeAssetPathSegment(Info.AssetName or ("RemoteImage_" .. HashString(Url) .. "_" .. FileName))
 
-    local AddSuccess, AddError = pcall(CustomImageManager.AddAsset, AssetName, Info.RobloxAssetId or 0, Url, Info.ForceRedownload)
+    local AddSuccess, AddError =
+        pcall(CustomImageManager.AddAsset, AssetName, Info.RobloxAssetId or 0, Url, Info.ForceRedownload)
     if not AddSuccess then
         if tostring(AddError):find("already exists", 1, true) then
             if Info.ForceRedownload == true then
@@ -1776,7 +1808,11 @@ local function FetchFontManifest(Url: string)
                 return Decoded, CandidateUrl
             end
 
-            LastError = string.format("decode failed at %s; response starts with: %s", CandidateUrl, GetFontResponsePreview(Body))
+            LastError = string.format(
+                "decode failed at %s; response starts with: %s",
+                CandidateUrl,
+                GetFontResponsePreview(Body)
+            )
         else
             LastError = string.format("request failed at %s; %s", CandidateUrl, tostring(Body))
         end
@@ -1903,7 +1939,10 @@ function CustomFontManager:Download(Url: string, Options)
     assert(typeof(Url) == "string", "Font:Download expects a URL string.")
 
     local Decoded, SourceUrl, ErrorMessage = FetchFontManifest(Url)
-    assert(typeof(Decoded) == "table", "Font:Download expects a bitmap font JSON manifest URL. " .. tostring(ErrorMessage))
+    assert(
+        typeof(Decoded) == "table",
+        "Font:Download expects a bitmap font JSON manifest URL. " .. tostring(ErrorMessage)
+    )
 
     if typeof(Options) == "table" then
         for Key, Value in Options do
@@ -1934,7 +1973,10 @@ function Library:RegisterCustomFont(FontInfo)
 end
 
 function Library:SetCustomFont(FontData)
-    assert(typeof(FontData) == "table" and FontData.Type == "CustomFont", "SetCustomFont expects Font:Download/Register data.")
+    assert(
+        typeof(FontData) == "table" and FontData.Type == "CustomFont",
+        "SetCustomFont expects Font:Download/Register data."
+    )
 
     Library.CustomFont = FontData
     return FontData
@@ -2738,6 +2780,91 @@ function Library:AddOutline(Frame: GuiObject, Info)
     return OutlineStroke, ShadowStroke
 end
 
+function Library:AddShadowGlow(Frame: GuiObject, Info)
+    Info = Info or {}
+    if Info.Enabled == false then
+        return nil
+    end
+
+    local Padding = math.max(0, tonumber(Info.Size or Info.Thickness or Info.Padding) or 18)
+    local Offset = typeof(Info.Offset) == "Vector2" and Info.Offset
+        or Vector2.new(tonumber(Info.OffsetX) or 0, tonumber(Info.OffsetY) or 0)
+    local Parent = Info.Parent or Frame.Parent
+    if not Parent then
+        return nil
+    end
+
+    local Image = Info.Image or CustomImageManager.GetAsset("SoftGlow") or ""
+    if IsHttpUrl(Image) then
+        Image = Library:DownloadImage(Image, {
+            Name = Info.Name or "ShadowGlow",
+            Extension = "png",
+            AssetName = Info.AssetName,
+            ForceRedownload = Info.ForceRedownload,
+        })
+    end
+
+    local Glow = New("ImageLabel", {
+        Name = Info.Name or "ShadowGlow",
+        BackgroundTransparency = 1,
+        Image = Image,
+        ImageColor3 = Info.Color or "DarkColor",
+        ImageTransparency = math.clamp(tonumber(Info.Transparency) or 0.62, 0, 1),
+        ScaleType = Enum.ScaleType.Slice,
+        SliceCenter = Info.SliceCenter or Rect.new(32, 32, 64, 64),
+        SliceScale = tonumber(Info.SliceScale) or 1,
+        Visible = Frame.Visible,
+        ZIndex = Info.ZIndex or math.max(0, Frame.ZIndex - 1),
+        Parent = Parent,
+    })
+
+    local TrackParent = Info.Parent == nil
+    local function Sync()
+        if not Glow.Parent then
+            return
+        end
+
+        if not Frame.Parent then
+            Glow.Visible = false
+            return
+        end
+
+        if TrackParent and Frame.Parent and Glow.Parent ~= Frame.Parent then
+            Glow.Parent = Frame.Parent
+        end
+
+        local AnchorPoint = Frame.AnchorPoint
+        local PositionOffsetX = Offset.X + ((AnchorPoint.X * 2) - 1) * Padding
+        local PositionOffsetY = Offset.Y + ((AnchorPoint.Y * 2) - 1) * Padding
+
+        Glow.AnchorPoint = AnchorPoint
+        Glow.Position = UDim2.new(
+            Frame.Position.X.Scale,
+            Frame.Position.X.Offset + PositionOffsetX,
+            Frame.Position.Y.Scale,
+            Frame.Position.Y.Offset + PositionOffsetY
+        )
+        Glow.Size = UDim2.new(
+            Frame.Size.X.Scale,
+            Frame.Size.X.Offset + (Padding * 2),
+            Frame.Size.Y.Scale,
+            Frame.Size.Y.Offset + (Padding * 2)
+        )
+        Glow.Visible = Frame.Visible
+        Glow.ZIndex = Info.ZIndex or math.max(0, Frame.ZIndex - 1)
+    end
+
+    Sync()
+    Library:GiveSignal(Frame:GetPropertyChangedSignal("Position"):Connect(Sync))
+    Library:GiveSignal(Frame:GetPropertyChangedSignal("Size"):Connect(Sync))
+    Library:GiveSignal(Frame:GetPropertyChangedSignal("AnchorPoint"):Connect(Sync))
+    Library:GiveSignal(Frame:GetPropertyChangedSignal("Visible"):Connect(Sync))
+    Library:GiveSignal(Frame:GetPropertyChangedSignal("ZIndex"):Connect(Sync))
+    Library:GiveSignal(Frame:GetPropertyChangedSignal("Parent"):Connect(Sync))
+
+    return Glow, Sync
+end
+
 function Library:AddGradient(Frame: GuiObject, Info)
     Info = Info or {}
 
@@ -2878,7 +3005,7 @@ function Library:AddDraggableButton(Text: string, Func, ExcludeScaling: boolean?
         if not IsClickInput(Input) then
             return
         end
-        
+
         local Start = tick()
 
         local Changed
@@ -3012,7 +3139,9 @@ function Library:AddDraggableMenu(Name: string, Info)
     end
 
     if UseHeightConstraint then
-        Library:GiveSignal(ContainerList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(RefreshConstrainedHeight))
+        Library:GiveSignal(
+            ContainerList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(RefreshConstrainedHeight)
+        )
         task.defer(RefreshConstrainedHeight)
     end
 
@@ -3068,7 +3197,10 @@ function Library:AddKeybindMenuButton(Info)
         Visible = Button.Visible,
         Parent = Library.KeybindContainer,
     })
-    table.insert(Library.Corners, New("UICorner", { CornerRadius = UDim.new(0, Library.CornerRadius), Parent = Holder }))
+    table.insert(
+        Library.Corners,
+        New("UICorner", { CornerRadius = UDim.new(0, Library.CornerRadius), Parent = Holder })
+    )
     Library:AddOutline(Holder, {
         Color = Info.StrokeColor or "AccentColor",
         Transparency = Info.StrokeTransparency or 0.55,
@@ -3188,10 +3320,12 @@ function Library:AddKeybindMenuToggle(Idx, Info)
     })
 
     function Toggle:Display()
-        TweenService:Create(Track, Library.TweenInfo, {
-            BackgroundColor3 = Toggle.Value and Library.Scheme.AccentColor or Library.Scheme.OutlineColor,
-            BackgroundTransparency = Toggle.Value and 0.04 or 0.22,
-        }):Play()
+        TweenService
+            :Create(Track, Library.TweenInfo, {
+                BackgroundColor3 = Toggle.Value and Library.Scheme.AccentColor or Library.Scheme.OutlineColor,
+                BackgroundTransparency = Toggle.Value and 0.04 or 0.22,
+            })
+            :Play()
         TweenService:Create(Knob, Library.TweenInfo, {
             Position = Toggle.Value and UDim2.new(1, -16, 0.5, 0) or UDim2.new(0, 4, 0.5, 0),
         }):Play()
@@ -3902,13 +4036,17 @@ do
             })
 
             function KeybindsToggle:Display(State)
-                TweenService:Create(Track, Library.TweenInfo, {
-                    BackgroundColor3 = State and Library.Scheme.AccentColor or Library.Scheme.MainColor,
-                    BackgroundTransparency = State and 0.04 or 0.2,
-                }):Play()
-                TweenService:Create(Knob, Library.TweenInfo, {
-                    Position = State and UDim2.new(1, -16, 0.5, 0) or UDim2.new(0, 4, 0.5, 0),
-                }):Play()
+                TweenService
+                    :Create(Track, Library.TweenInfo, {
+                        BackgroundColor3 = State and Library.Scheme.AccentColor or Library.Scheme.MainColor,
+                        BackgroundTransparency = State and 0.04 or 0.2,
+                    })
+                    :Play()
+                TweenService
+                    :Create(Knob, Library.TweenInfo, {
+                        Position = State and UDim2.new(1, -16, 0.5, 0) or UDim2.new(0, 4, 0.5, 0),
+                    })
+                    :Play()
                 KnobGlow.Transparency = State and 0.25 or 0.75
                 Label.TextTransparency = State and 0 or 0.5
             end
@@ -5693,9 +5831,14 @@ do
             if Button.Disabled then
                 return
             end
-            TweenService:Create(Holder, Library.TweenInfo, {
-                BackgroundTransparency = GetBackgroundImageSurfaceTransparency(Info.HoverTransparency or 0, "Panel"),
-            }):Play()
+            TweenService
+                :Create(Holder, Library.TweenInfo, {
+                    BackgroundTransparency = GetBackgroundImageSurfaceTransparency(
+                        Info.HoverTransparency or 0,
+                        "Panel"
+                    ),
+                })
+                :Play()
             TweenService:Create(Label, Library.TweenInfo, { TextTransparency = 0 }):Play()
             PlayShine()
         end)
@@ -5703,9 +5846,11 @@ do
             if Button.Disabled then
                 return
             end
-            TweenService:Create(Holder, Library.TweenInfo, {
-                BackgroundTransparency = GetBackgroundImageSurfaceTransparency(Info.Transparency or 0.08, "Panel"),
-            }):Play()
+            TweenService
+                :Create(Holder, Library.TweenInfo, {
+                    BackgroundTransparency = GetBackgroundImageSurfaceTransparency(Info.Transparency or 0.08, "Panel"),
+                })
+                :Play()
             TweenService:Create(Label, Library.TweenInfo, { TextTransparency = 0.1 }):Play()
         end)
         Holder.MouseButton1Click:Connect(function()
@@ -5746,13 +5891,20 @@ do
         local Holder = Button.Holder
         task.spawn(function()
             while Holder and Holder.Parent do
-                TweenService:Create(Holder, TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-                    BackgroundTransparency = GetBackgroundImageSurfaceTransparency(Info.Transparency + 0.06, "Panel"),
-                }):Play()
+                TweenService
+                    :Create(Holder, TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                        BackgroundTransparency = GetBackgroundImageSurfaceTransparency(
+                            Info.Transparency + 0.06,
+                            "Panel"
+                        ),
+                    })
+                    :Play()
                 task.wait(0.9)
-                TweenService:Create(Holder, TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-                    BackgroundTransparency = GetBackgroundImageSurfaceTransparency(Info.Transparency, "Panel"),
-                }):Play()
+                TweenService
+                    :Create(Holder, TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                        BackgroundTransparency = GetBackgroundImageSurfaceTransparency(Info.Transparency, "Panel"),
+                    })
+                    :Play()
                 task.wait(0.9)
             end
         end)
@@ -7217,7 +7369,8 @@ do
                             return GetSchemeValue(Default) or Library.Scheme[Default]
                         end
 
-                        local PreviewBackgroundColor = ResolvePreviewColor(CardInfo.PreviewBackgroundColor, "BackgroundColor")
+                        local PreviewBackgroundColor =
+                            ResolvePreviewColor(CardInfo.PreviewBackgroundColor, "BackgroundColor")
                         local PreviewMainColor = ResolvePreviewColor(CardInfo.PreviewMainColor, "MainColor")
                         local PreviewAccentColor = ResolvePreviewColor(CardInfo.PreviewAccentColor, "AccentColor")
                         local PreviewOutlineColor = ResolvePreviewColor(CardInfo.PreviewOutlineColor, "OutlineColor")
@@ -7230,10 +7383,11 @@ do
                             Library:AddGradient(Container, {
                                 Color = CardInfo.GradientColorSequence,
                                 Rotation = CardInfo.GradientRotation or 35,
-                                Transparency = CardInfo.GradientTransparency or NumberSequence.new({
-                                    NumberSequenceKeypoint.new(0, 0.05),
-                                    NumberSequenceKeypoint.new(1, 0.35),
-                                }),
+                                Transparency = CardInfo.GradientTransparency
+                                    or NumberSequence.new({
+                                        NumberSequenceKeypoint.new(0, 0.05),
+                                        NumberSequenceKeypoint.new(1, 0.35),
+                                    }),
                             })
                         end
 
@@ -8647,14 +8801,17 @@ do
                 BackgroundColor3 = DrawingInfo.BackgroundColor3 or "BackgroundColor",
                 BackgroundTransparency = DrawingInfo.BackgroundTransparency or 1,
                 BorderSizePixel = 0,
-                Image = ResolveCanvasImage(DrawingInfo.Image or DrawingInfo.Texture or DrawingInfo.Url or DrawingInfo.URL),
+                Image = ResolveCanvasImage(
+                    DrawingInfo.Image or DrawingInfo.Texture or DrawingInfo.Url or DrawingInfo.URL
+                ),
                 ImageColor3 = DrawingInfo.ImageColor3 or DrawingInfo.Color or "WhiteColor",
                 ImageRectOffset = DrawingInfo.ImageRectOffset or DrawingInfo.RectOffset or Vector2.zero,
                 ImageRectSize = DrawingInfo.ImageRectSize or DrawingInfo.RectSize or Vector2.zero,
                 ImageTransparency = DrawingInfo.ImageTransparency or DrawingInfo.Transparency or 0,
                 Position = DrawingInfo.Position or UDim2.fromScale(0, 0),
                 Rotation = tonumber(DrawingInfo.Rotation) or 0,
-                ScaleType = DrawingInfo.ScaleType or (DrawingInfo.TileSize and Enum.ScaleType.Tile or Enum.ScaleType.Crop),
+                ScaleType = DrawingInfo.ScaleType
+                    or (DrawingInfo.TileSize and Enum.ScaleType.Tile or Enum.ScaleType.Crop),
                 Size = DrawingInfo.Size or UDim2.fromOffset(44, 44),
                 TileSize = DrawingInfo.TileSize,
                 Visible = DrawingInfo.Visible ~= false,
@@ -8712,8 +8869,8 @@ do
                 continue
             end
 
-            local DrawingType = tostring(DrawingInfo.Type or DrawingInfo.Kind or (DrawingInfo.Image and "Image" or "Frame"))
-                :lower()
+            local DrawingType =
+                tostring(DrawingInfo.Type or DrawingInfo.Kind or (DrawingInfo.Image and "Image" or "Frame")):lower()
             if DrawingType == "text" or DrawingType == "label" then
                 Canvas:AddText(DrawingInfo)
             elseif DrawingType == "image" or DrawingType == "texture" then
@@ -9061,7 +9218,12 @@ do
                 ZIndex = 3,
             })
             Canvas:AddText({
-                Text = string.format("%s   %d days%s", TeamName, AccountAge, HealthText and ("   " .. HealthText) or ""),
+                Text = string.format(
+                    "%s   %d days%s",
+                    TeamName,
+                    AccountAge,
+                    HealthText and ("   " .. HealthText) or ""
+                ),
                 Position = UDim2.fromOffset(88, 58),
                 Size = UDim2.new(1, -100, 0, 18),
                 TextSize = 13,
@@ -10564,7 +10726,10 @@ function Library:CreatePopup(Info, Time)
         ZIndex = 10000,
         Parent = PopupParent,
     })
-    table.insert(Library.Corners, New("UICorner", { CornerRadius = UDim.new(0, Library.CornerRadius + 2), Parent = Card }))
+    table.insert(
+        Library.Corners,
+        New("UICorner", { CornerRadius = UDim.new(0, Library.CornerRadius + 2), Parent = Card })
+    )
     Library:AddOutline(Card, {
         Color = Info.OutlineColor or "OutlineColor",
         Transparency = 0.05,
@@ -10683,7 +10848,10 @@ function Library:CreatePopup(Info, Time)
             ZIndex = 10003,
             Parent = Header,
         })
-        table.insert(Library.Corners, New("UICorner", { CornerRadius = UDim.new(0, Library.CornerRadius), Parent = CloseButton }))
+        table.insert(
+            Library.Corners,
+            New("UICorner", { CornerRadius = UDim.new(0, Library.CornerRadius), Parent = CloseButton })
+        )
         Library:AddOutline(CloseButton, { Transparency = 0.25, ShadowTransparency = 1 })
     end
 
@@ -10760,7 +10928,10 @@ function Library:CreatePopup(Info, Time)
                 PaddingRight = UDim.new(0, 10),
                 Parent = Button,
             })
-            table.insert(Library.Corners, New("UICorner", { CornerRadius = UDim.new(0, Library.CornerRadius), Parent = Button }))
+            table.insert(
+                Library.Corners,
+                New("UICorner", { CornerRadius = UDim.new(0, Library.CornerRadius), Parent = Button })
+            )
             Library:AddOutline(Button, {
                 Color = ButtonOutlineColor,
                 Transparency = Variant == "Ghost" and 0.85 or 0.2,
@@ -10988,6 +11159,8 @@ function Library:CreateWindow(WindowInfo)
     local WindowGradient
     local MainOutlineStroke
     local MainShadowStroke
+    local MainDropShadow
+    local MainWindowGlow
     local BottomBackground
     local FooterLabel
 
@@ -11006,7 +11179,8 @@ function Library:CreateWindow(WindowInfo)
         return Image
     end
 
-    local DynamicIslandLockedIconUrl = "https://api.iconify.design/solar:lock-keyhole-minimalistic-bold.svg?color=%23ffffff"
+    local DynamicIslandLockedIconUrl =
+        "https://api.iconify.design/solar:lock-keyhole-minimalistic-bold.svg?color=%23ffffff"
     local DynamicIslandUnlockedIconUrl =
         "https://api.iconify.design/solar:lock-keyhole-minimalistic-unlocked-bold.svg?color=%23ffffff"
 
@@ -11030,7 +11204,8 @@ function Library:CreateWindow(WindowInfo)
     end
 
     local DynamicIslandController
-    local ToggleMethod = tostring(WindowInfo.MethodToggle or WindowInfo.ToggleMethod or WindowInfo.MobileButtonsMode or "Button")
+    local ToggleMethod =
+        tostring(WindowInfo.MethodToggle or WindowInfo.ToggleMethod or WindowInfo.MobileButtonsMode or "Button")
     ToggleMethod = ToggleMethod:lower():gsub("[%s_%-%/]+", "")
     local UseDynamicIslandToggle = WindowInfo.DynamicIsland == true
         or WindowInfo.DynamicIslandActive == true
@@ -11147,7 +11322,8 @@ function Library:CreateWindow(WindowInfo)
 
             local WidthOffset = Size.X.Offset ~= 0 and Size.X.Offset or DefaultWidth
             WidthOffset = math.floor((WidthOffset * DynamicIslandScale) + 0.5)
-            local HeightOffset = UseTopbarHeight and TopbarHeight or (Size.Y.Offset ~= 0 and Size.Y.Offset or TopbarHeight)
+            local HeightOffset = UseTopbarHeight and TopbarHeight
+                or (Size.Y.Offset ~= 0 and Size.Y.Offset or TopbarHeight)
             return UDim2.new(Size.X.Scale, WidthOffset, 0, HeightOffset)
         end
 
@@ -11155,7 +11331,8 @@ function Library:CreateWindow(WindowInfo)
         local ExpandedSize = ApplyIslandHeight(WindowInfo.DynamicIslandExpandedSize, 146)
         local IdleSize
         if typeof(WindowInfo.DynamicIslandIdleSize) == "UDim2" then
-            IdleSize = ApplyIslandHeight(WindowInfo.DynamicIslandIdleSize, CollapsedSize.X.Offset * DynamicIslandIdleScale)
+            IdleSize =
+                ApplyIslandHeight(WindowInfo.DynamicIslandIdleSize, CollapsedSize.X.Offset * DynamicIslandIdleScale)
         else
             IdleSize = UDim2.new(
                 CollapsedSize.X.Scale * DynamicIslandIdleScale,
@@ -11164,10 +11341,10 @@ function Library:CreateWindow(WindowInfo)
                 TopbarHeight
             )
         end
-        local TopOffset = tonumber(WindowInfo.DynamicIslandTopOffset) or 4
+        local TopOffset = tonumber(WindowInfo.DynamicIslandTopOffset) or 15
         local ActivePosition = if UseTopbarHeight
             then UDim2.new(0.5, 0, 0, TopbarY + TopOffset)
-            else (WindowInfo.DynamicIslandPosition or UDim2.new(0.5, 0, 0, 8))
+            else (WindowInfo.DynamicIslandPosition or UDim2.new(0.5, 0, 0, 15))
         local IdlePosition = if UseTopbarHeight
             then UDim2.new(0.5, 0, 0, TopbarY + TopOffset - math.floor(TopbarHeight * 0.42))
             else (WindowInfo.DynamicIslandIdlePosition or UDim2.new(0.5, 0, 0, 2))
@@ -11175,6 +11352,11 @@ function Library:CreateWindow(WindowInfo)
         local IdleTransparency = math.clamp(tonumber(WindowInfo.DynamicIslandIdleTransparency) or 0.16, 0, 1)
         local GlassTransparency = math.clamp(tonumber(WindowInfo.DynamicIslandGlassTransparency) or 0.88, 0, 1)
         local BorderThickness = math.max(1, tonumber(WindowInfo.DynamicIslandBorderThickness) or 1.35)
+        local DynamicIslandGlowEnabled = WindowInfo.DynamicIslandGlow ~= false
+        local DynamicIslandGlowTransparency =
+            math.clamp(tonumber(WindowInfo.DynamicIslandGlowTransparency) or 0.86, 0, 1)
+        local DynamicIslandShadowTransparency =
+            math.clamp(tonumber(WindowInfo.DynamicIslandShadowTransparency) or 0.5, 0, 1)
         local HideContentWhenIdle = WindowInfo.DynamicIslandHideContentWhenIdle ~= false
         local GradientAnimationEnabled = WindowInfo.DynamicIslandGradientAnimation ~= false
         local GradientAnimationSpeed = math.max(1.2, tonumber(WindowInfo.DynamicIslandGradientAnimationSpeed) or 2.8)
@@ -11218,10 +11400,32 @@ function Library:CreateWindow(WindowInfo)
         })
         local IslandCorner = New("UICorner", { CornerRadius = ActiveCornerRadius, Parent = Island })
         table.insert(Library.Corners, IslandCorner)
+        local IslandShadow = if WindowInfo.DynamicIslandShadow ~= false
+            then Library:AddShadowGlow(Island, {
+                Name = "DynamicIslandShadow",
+                Color = WindowInfo.DynamicIslandShadowColor or WindowInfo.ShadowColor or "DarkColor",
+                Transparency = DynamicIslandShadowTransparency,
+                Size = WindowInfo.DynamicIslandShadowSize or 13,
+                Offset = WindowInfo.DynamicIslandShadowOffset or Vector2.new(0, 4),
+                Image = WindowInfo.DynamicIslandShadowImage,
+                ZIndex = Island.ZIndex - 3,
+            })
+            else nil
+        local IslandImageGlow = if DynamicIslandGlowEnabled
+            then Library:AddShadowGlow(Island, {
+                Name = "DynamicIslandGlow",
+                Color = WindowInfo.DynamicIslandGlowColor or "WhiteColor",
+                Transparency = DynamicIslandGlowTransparency,
+                Size = WindowInfo.DynamicIslandGlowSize or 8,
+                Offset = WindowInfo.DynamicIslandGlowOffset or Vector2.zero,
+                Image = WindowInfo.DynamicIslandGlowImage,
+                ZIndex = Island.ZIndex - 2,
+            })
+            else nil
         local OuterGlowStroke = New("UIStroke", {
-            Color = "AccentColor",
+            Color = WindowInfo.DynamicIslandGlowColor or "WhiteColor",
             Thickness = BorderThickness + 2,
-            Transparency = 0.84,
+            Transparency = DynamicIslandGlowEnabled and 0.84 or 1,
             Parent = Island,
         })
         local OutlineStroke = New("UIStroke", {
@@ -11379,7 +11583,8 @@ function Library:CreateWindow(WindowInfo)
         local LongPressTriggered = false
         local ContentVisibilityToken = 0
         local LockedIcon = ResolveDynamicIslandAsset(WindowInfo.DynamicIslandLockedIcon or DynamicIslandLockedIconUrl)
-        local UnlockedIcon = ResolveDynamicIslandAsset(WindowInfo.DynamicIslandUnlockedIcon or DynamicIslandUnlockedIconUrl)
+        local UnlockedIcon =
+            ResolveDynamicIslandAsset(WindowInfo.DynamicIslandUnlockedIcon or DynamicIslandUnlockedIconUrl)
 
         local function ApplyImageLabelIcon(Label: ImageLabel, Icon)
             if not Icon then
@@ -11420,7 +11625,13 @@ function Library:CreateWindow(WindowInfo)
             local TargetPosition = IsIdle and IdlePosition or ActivePosition
             local TargetTransparency = IsIdle and IdleTransparency or BaseTransparency
             local TargetBorderTransparency = IsIdle and 0.22 or (Library.Toggled and 0.01 or 0.04)
-            local TargetGlowTransparency = IsIdle and 0.9 or (Library.Toggled and 0.72 or 0.82)
+            local TargetGlowTransparency = if DynamicIslandGlowEnabled
+                then (IsIdle and 0.9 or (Library.Toggled and 0.72 or 0.82))
+                else 1
+            local TargetImageGlowTransparency = if DynamicIslandGlowEnabled
+                then math.clamp(DynamicIslandGlowTransparency + (IsIdle and 0.08 or 0), 0, 1)
+                else 1
+            local TargetShadowTransparency = math.clamp(DynamicIslandShadowTransparency + (IsIdle and 0.12 or 0), 0, 1)
             local TargetGlassTransparency = math.clamp(GlassTransparency + (IsIdle and 0.05 or 0), 0, 1)
             local TargetShineTransparency = IsIdle and 0.94 or 0.86
             local TargetCornerRadius = IsIdle and IdleCornerRadius or ActiveCornerRadius
@@ -11436,6 +11647,12 @@ function Library:CreateWindow(WindowInfo)
                 Island.BackgroundTransparency = TargetTransparency
                 OutlineStroke.Transparency = TargetBorderTransparency
                 OuterGlowStroke.Transparency = TargetGlowTransparency
+                if IslandImageGlow then
+                    IslandImageGlow.ImageTransparency = TargetImageGlowTransparency
+                end
+                if IslandShadow then
+                    IslandShadow.ImageTransparency = TargetShadowTransparency
+                end
                 GlassLayer.BackgroundTransparency = TargetGlassTransparency
                 ShineLayer.BackgroundTransparency = TargetShineTransparency
                 IslandCorner.CornerRadius = TargetCornerRadius
@@ -11454,36 +11671,74 @@ function Library:CreateWindow(WindowInfo)
                 Position = TargetPosition,
                 Size = TargetSize,
             }):Play()
-            TweenService:Create(OutlineStroke, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                Transparency = TargetBorderTransparency,
-            }):Play()
-            TweenService:Create(OuterGlowStroke, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                Transparency = TargetGlowTransparency,
-            }):Play()
-            TweenService:Create(GlassLayer, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                BackgroundTransparency = TargetGlassTransparency,
-            }):Play()
-            TweenService:Create(ShineLayer, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                BackgroundTransparency = TargetShineTransparency,
-            }):Play()
-            TweenService:Create(IslandCorner, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                CornerRadius = TargetCornerRadius,
-            }):Play()
-            TweenService:Create(GlassCorner, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                CornerRadius = TargetCornerRadius,
-            }):Play()
-            TweenService:Create(ShineCorner, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                CornerRadius = TargetCornerRadius,
-            }):Play()
-            TweenService:Create(TitleLabel, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                TextTransparency = TargetTitleTransparency,
-            }):Play()
-            TweenService:Create(StatusLabel, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                TextTransparency = TargetStatusTransparency,
-            }):Play()
-            TweenService:Create(AssetImage, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                ImageTransparency = TargetIconTransparency,
-            }):Play()
+            TweenService
+                :Create(OutlineStroke, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                    Transparency = TargetBorderTransparency,
+                })
+                :Play()
+            TweenService
+                :Create(OuterGlowStroke, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                    Transparency = TargetGlowTransparency,
+                })
+                :Play()
+            if IslandImageGlow then
+                TweenService
+                    :Create(
+                        IslandImageGlow,
+                        TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                        {
+                            ImageTransparency = TargetImageGlowTransparency,
+                        }
+                    )
+                    :Play()
+            end
+            if IslandShadow then
+                TweenService
+                    :Create(IslandShadow, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                        ImageTransparency = TargetShadowTransparency,
+                    })
+                    :Play()
+            end
+            TweenService
+                :Create(GlassLayer, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                    BackgroundTransparency = TargetGlassTransparency,
+                })
+                :Play()
+            TweenService
+                :Create(ShineLayer, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                    BackgroundTransparency = TargetShineTransparency,
+                })
+                :Play()
+            TweenService
+                :Create(IslandCorner, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                    CornerRadius = TargetCornerRadius,
+                })
+                :Play()
+            TweenService
+                :Create(GlassCorner, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                    CornerRadius = TargetCornerRadius,
+                })
+                :Play()
+            TweenService
+                :Create(ShineCorner, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                    CornerRadius = TargetCornerRadius,
+                })
+                :Play()
+            TweenService
+                :Create(TitleLabel, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                    TextTransparency = TargetTitleTransparency,
+                })
+                :Play()
+            TweenService
+                :Create(StatusLabel, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                    TextTransparency = TargetStatusTransparency,
+                })
+                :Play()
+            TweenService
+                :Create(AssetImage, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                    ImageTransparency = TargetIconTransparency,
+                })
+                :Play()
             TweenService:Create(StatusDot, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 ImageTransparency = TargetLockTransparency,
             }):Play()
@@ -11529,7 +11784,8 @@ function Library:CreateWindow(WindowInfo)
                 OutlineGradient.Offset = Vector2.new(-0.45 * Direction, 0)
                 ShineGradient.Offset = Vector2.new(-1.1 * Direction, 0)
 
-                local TweenStyle = TweenInfo.new(GradientAnimationSpeed, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+                local TweenStyle =
+                    TweenInfo.new(GradientAnimationSpeed, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
                 local GlassTween = TweenService:Create(IslandGradient, TweenStyle, {
                     Offset = Vector2.new(0.5 * Direction, 0),
                     Rotation = 18 + (8 * Direction),
@@ -11646,8 +11902,7 @@ function Library:CreateWindow(WindowInfo)
         end
 
         local function IsIslandPressInput(Input: InputObject, State: Enum.UserInputState)
-            return IsMouseInput(Input)
-                and Input.UserInputState == State
+            return IsMouseInput(Input) and Input.UserInputState == State
         end
 
         Island.MouseEnter:Connect(function()
@@ -11664,9 +11919,11 @@ function Library:CreateWindow(WindowInfo)
             TweenService:Create(Island, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 BackgroundTransparency = IsIdle and IdleTransparency or BaseTransparency,
             }):Play()
-            TweenService:Create(GlassLayer, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                BackgroundTransparency = math.clamp(GlassTransparency + (IsIdle and 0.05 or 0), 0, 1),
-            }):Play()
+            TweenService
+                :Create(GlassLayer, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                    BackgroundTransparency = math.clamp(GlassTransparency + (IsIdle and 0.05 or 0), 0, 1),
+                })
+                :Play()
         end)
         Island.InputBegan:Connect(function(Input: InputObject)
             if not IsIslandPressInput(Input, Enum.UserInputState.Begin) then
@@ -11721,7 +11978,8 @@ function Library:CreateWindow(WindowInfo)
         FullscreenBackground.Visible = WindowInfo.FullscreenBackground == true
         FullscreenBackground.BackgroundColor3 = WindowInfo.FullscreenBackgroundColor
         FullscreenBackground.BackgroundTransparency = WindowInfo.FullscreenBackgroundTransparency
-        WindowInfo.FullscreenBackgroundImage = ResolveWindowImage(WindowInfo.FullscreenBackgroundImage, "WindowFullscreenBackground")
+        WindowInfo.FullscreenBackgroundImage =
+            ResolveWindowImage(WindowInfo.FullscreenBackgroundImage, "WindowFullscreenBackground")
         FullscreenBackground.Image = WindowInfo.FullscreenBackgroundImage or ""
         FullscreenBackground.ImageTransparency = WindowInfo.FullscreenBackgroundImageTransparency
         FullscreenBackground.ScaleType = WindowInfo.FullscreenBackgroundImageScaleType
@@ -11774,6 +12032,28 @@ function Library:CreateWindow(WindowInfo)
             ShadowThickness = WindowInfo.ShadowThickness,
             ShadowTransparency = WindowInfo.ShadowTransparency,
         })
+        if WindowInfo.WindowShadow ~= false then
+            MainDropShadow = Library:AddShadowGlow(MainFrame, {
+                Name = "WindowShadow",
+                Color = WindowInfo.WindowShadowColor or WindowInfo.ShadowColor or "DarkColor",
+                Transparency = WindowInfo.WindowShadowTransparency or 0.58,
+                Size = WindowInfo.WindowShadowSize or 28,
+                Offset = WindowInfo.WindowShadowOffset or Vector2.new(0, 8),
+                Image = WindowInfo.WindowShadowImage,
+                ZIndex = math.max(0, MainFrame.ZIndex - 1),
+            })
+        end
+        if WindowInfo.WindowGlow == true then
+            MainWindowGlow = Library:AddShadowGlow(MainFrame, {
+                Name = "WindowGlow",
+                Color = WindowInfo.WindowGlowColor or "WhiteColor",
+                Transparency = WindowInfo.WindowGlowTransparency or 0.88,
+                Size = WindowInfo.WindowGlowSize or 18,
+                Offset = WindowInfo.WindowGlowOffset or Vector2.zero,
+                Image = WindowInfo.WindowGlowImage,
+                ZIndex = math.max(0, MainFrame.ZIndex - 1),
+            })
+        end
         if WindowInfo.Gradient then
             WindowGradient = Library:AddGradient(MainFrame, {
                 Color = WindowInfo.GradientColorSequence,
@@ -12159,9 +12439,7 @@ function Library:CreateWindow(WindowInfo)
 
         Image = ResolveWindowImage(Image, "WindowFullscreenBackground")
         FullscreenBackground.Image = Image or ""
-        FullscreenBackground.Visible = WindowInfo.FullscreenBackground == true
-            and Image ~= nil
-            and Image ~= ""
+        FullscreenBackground.Visible = WindowInfo.FullscreenBackground == true and Image ~= nil and Image ~= ""
         WindowInfo.FullscreenBackgroundImage = Image
         if Image and Image ~= "" then
             FullscreenBackground.BackgroundTransparency = math.max(0.95, WindowInfo.FullscreenBackgroundTransparency)
@@ -12207,7 +12485,9 @@ function Library:CreateWindow(WindowInfo)
     function Window:SetGradient(Enabled: boolean, GradientInfo)
         WindowInfo.Gradient = Enabled == true
         if GradientInfo then
-            WindowInfo.GradientColorSequence = GradientInfo.Color or GradientInfo.ColorSequence or WindowInfo.GradientColorSequence
+            WindowInfo.GradientColorSequence = GradientInfo.Color
+                or GradientInfo.ColorSequence
+                or WindowInfo.GradientColorSequence
             WindowInfo.GradientRotation = GradientInfo.Rotation or WindowInfo.GradientRotation
             WindowInfo.GradientTransparency = GradientInfo.Transparency or WindowInfo.GradientTransparency
         end
@@ -12256,7 +12536,10 @@ function Library:CreateWindow(WindowInfo)
 
     function Window:SetDynamicIslandText(Text: string?, Subtitle: string?)
         assert(Text == nil or typeof(Text) == "string", "Expected string or nil for Text got: " .. typeof(Text))
-        assert(Subtitle == nil or typeof(Subtitle) == "string", "Expected string or nil for Subtitle got: " .. typeof(Subtitle))
+        assert(
+            Subtitle == nil or typeof(Subtitle) == "string",
+            "Expected string or nil for Subtitle got: " .. typeof(Subtitle)
+        )
 
         WindowInfo.DynamicIslandText = Text or WindowInfo.DynamicIslandText
         WindowInfo.DynamicIslandSubtitle = Subtitle or WindowInfo.DynamicIslandSubtitle
@@ -12288,11 +12571,20 @@ function Library:CreateWindow(WindowInfo)
         end
         if Info.ShadowColor then
             MainShadowStroke.Color = GetSchemeValue(Info.ShadowColor) or Info.ShadowColor
+            if MainDropShadow then
+                MainDropShadow.ImageColor3 = GetSchemeValue(Info.ShadowColor) or Info.ShadowColor
+            end
             if typeof(Info.ShadowColor) == "string" then
                 if not Library.Registry[MainShadowStroke] then
                     Library:AddToRegistry(MainShadowStroke, {})
                 end
                 Library.Registry[MainShadowStroke].Color = Info.ShadowColor
+                if MainDropShadow then
+                    if not Library.Registry[MainDropShadow] then
+                        Library:AddToRegistry(MainDropShadow, {})
+                    end
+                    Library.Registry[MainDropShadow].ImageColor3 = Info.ShadowColor
+                end
             end
         end
         if Info.ShadowThickness then
@@ -12300,6 +12592,21 @@ function Library:CreateWindow(WindowInfo)
         end
         if Info.ShadowTransparency then
             MainShadowStroke.Transparency = Info.ShadowTransparency
+            if MainDropShadow then
+                MainDropShadow.ImageTransparency = math.clamp(Info.ShadowTransparency, 0, 1)
+            end
+        end
+        if MainWindowGlow and Info.GlowColor then
+            MainWindowGlow.ImageColor3 = GetSchemeValue(Info.GlowColor) or Info.GlowColor
+            if typeof(Info.GlowColor) == "string" then
+                if not Library.Registry[MainWindowGlow] then
+                    Library:AddToRegistry(MainWindowGlow, {})
+                end
+                Library.Registry[MainWindowGlow].ImageColor3 = Info.GlowColor
+            end
+        end
+        if MainWindowGlow and Info.GlowTransparency then
+            MainWindowGlow.ImageTransparency = math.clamp(Info.GlowTransparency, 0, 1)
         end
     end
 
@@ -13302,7 +13609,8 @@ function Library:CreateWindow(WindowInfo)
                 or (Info.DisableHoverGrow and CardHeight or CardHeight + (FullCard and 2 or 4))
             local HasThumbnail = Info.Thumbnail ~= nil and tostring(Info.Thumbnail) ~= ""
             local MinimumBarHeight = math.min(44, CardHeight)
-            local BarHeight = math.clamp(Info.BarHeight or (HasThumbnail and 56 or CardHeight), MinimumBarHeight, CardHeight)
+            local BarHeight =
+                math.clamp(Info.BarHeight or (HasThumbnail and 56 or CardHeight), MinimumBarHeight, CardHeight)
             local CardParent = FullCard and GetSideParent(Info.Side) or (Side == 1 and TabLeft or TabRight)
             local CardHolder = New("TextButton", {
                 AutoButtonColor = false,
@@ -13382,10 +13690,15 @@ function Library:CreateWindow(WindowInfo)
             })
 
             local function SetHover(Hovering)
-                TweenService:Create(CardHolder, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                    BackgroundTransparency = GetBackgroundImageSurfaceTransparency(Hovering and 0.02 or 0.1, "Panel"),
-                    Size = Hovering and UDim2.new(1, 0, 0, HoverHeight) or UDim2.new(1, 0, 0, CardHeight),
-                }):Play()
+                TweenService
+                    :Create(CardHolder, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                        BackgroundTransparency = GetBackgroundImageSurfaceTransparency(
+                            Hovering and 0.02 or 0.1,
+                            "Panel"
+                        ),
+                        Size = Hovering and UDim2.new(1, 0, 0, HoverHeight) or UDim2.new(1, 0, 0, CardHeight),
+                    })
+                    :Play()
                 TweenService
                     :Create(Bar, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                         BackgroundTransparency = Hovering and math.max(0, (Info.BottomBarTransparency or 0.25) - 0.08)
@@ -13456,9 +13769,11 @@ function Library:CreateWindow(WindowInfo)
                 Library.ActiveTab:Hide()
             end
 
-            TweenService:Create(TabButton, Library.TweenInfo, {
-                BackgroundTransparency = GetBackgroundImageSurfaceTransparency(IsCardTabs and 0.02 or 0, "Panel"),
-            }):Play()
+            TweenService
+                :Create(TabButton, Library.TweenInfo, {
+                    BackgroundTransparency = GetBackgroundImageSurfaceTransparency(IsCardTabs and 0.02 or 0, "Panel"),
+                })
+                :Play()
             TweenService:Create(TabLabel, Library.TweenInfo, {
                 TextTransparency = 0,
             }):Play()
@@ -13483,9 +13798,11 @@ function Library:CreateWindow(WindowInfo)
         end
 
         function Tab:Hide()
-            TweenService:Create(TabButton, Library.TweenInfo, {
-                BackgroundTransparency = GetBackgroundImageSurfaceTransparency(IsCardTabs and 0.1 or 1, "Panel"),
-            }):Play()
+            TweenService
+                :Create(TabButton, Library.TweenInfo, {
+                    BackgroundTransparency = GetBackgroundImageSurfaceTransparency(IsCardTabs and 0.1 or 1, "Panel"),
+                })
+                :Play()
             TweenService:Create(TabLabel, Library.TweenInfo, {
                 TextTransparency = 0.5,
             }):Play()
@@ -13681,7 +13998,12 @@ function Library:CreateWindow(WindowInfo)
                 Title = Info.TopUsersTitle or "Top Users",
                 Subtitle = Info.TopUsersSubtitle or "Live dashboard ranking",
                 Users = Info.TopUsers or {
-                    { Name = LocalPlayer.Name, DisplayName = LocalPlayer.DisplayName, UserId = LocalPlayer.UserId, Score = 100 },
+                    {
+                        Name = LocalPlayer.Name,
+                        DisplayName = LocalPlayer.DisplayName,
+                        UserId = LocalPlayer.UserId,
+                        Score = 100,
+                    },
                 },
                 MaxUsers = Info.TopUsersMax or 4,
             })
@@ -13691,7 +14013,8 @@ function Library:CreateWindow(WindowInfo)
                 Icon = Info.DetailTabIcon or "panel-top-open",
                 Description = Info.DetailTabDescription or "A hidden tab opened from a dashboard card.",
             })
-            local DetailOverview = DetailTab:AddFullGroupbox(Info.DetailGroupTitle or "Full Detail Players", "user-round")
+            local DetailOverview =
+                DetailTab:AddFullGroupbox(Info.DetailGroupTitle or "Full Detail Players", "user-round")
             DetailOverview:AddPlayerCard("DashboardDetailPlayerCard", {
                 Player = Info.Player or LocalPlayer,
                 Height = 120,
@@ -13701,7 +14024,12 @@ function Library:CreateWindow(WindowInfo)
                 Title = "Top User Box",
                 Subtitle = "This tab is not shown in the tab holder",
                 Users = Info.TopUsers or {
-                    { Name = LocalPlayer.Name, DisplayName = LocalPlayer.DisplayName, UserId = LocalPlayer.UserId, Score = 100 },
+                    {
+                        Name = LocalPlayer.Name,
+                        DisplayName = LocalPlayer.DisplayName,
+                        UserId = LocalPlayer.UserId,
+                        Score = 100,
+                    },
                 },
                 MaxUsers = Info.TopUsersMax or 5,
             })
@@ -13709,7 +14037,8 @@ function Library:CreateWindow(WindowInfo)
             Dashboard:AddCard({
                 Side = Info.DetailCardSide or "Full",
                 Title = Info.DetailCardTitle or "Open hidden player details",
-                Desc = Info.DetailCardDescription or "Card tab index: opens a dedicated hidden tab without adding it to the tab holder.",
+                Desc = Info.DetailCardDescription
+                    or "Card tab index: opens a dedicated hidden tab without adding it to the tab holder.",
                 Icon = "external-link",
                 Height = Info.DetailCardHeight or 82,
                 BarHeight = Info.DetailCardBarHeight or 82,
@@ -14983,7 +15312,8 @@ function Library:CreateLoading(LoadingInfo)
 
     local BackdropTransparency = math.clamp(tonumber(LoadingInfo.BackdropTransparency) or 0.35, 0, 1)
     local SurfaceTransparency = math.clamp(tonumber(LoadingInfo.SurfaceTransparency) or 0, 0, 1)
-    local SurfaceFillTransparency = math.clamp(tonumber(LoadingInfo.SurfaceFillTransparency) or SurfaceTransparency, 0, 1)
+    local SurfaceFillTransparency =
+        math.clamp(tonumber(LoadingInfo.SurfaceFillTransparency) or SurfaceTransparency, 0, 1)
     local ParticleCount = math.clamp(math.floor(tonumber(LoadingInfo.ParticleCount) or 0), 0, 48)
 
     local DefaultProgressTextureImage = CustomImageManager.GetAsset("LoadingBarPixelTextureV2")
@@ -15015,7 +15345,8 @@ function Library:CreateLoading(LoadingInfo)
 
         if typeof(Images) == "table" then
             for Index, Image in Images do
-                local ResolvedImage = ResolveLoadingImageAsset(Image, string.format("%s%d_", Prefix or "LoadingFrame_", Index))
+                local ResolvedImage =
+                    ResolveLoadingImageAsset(Image, string.format("%s%d_", Prefix or "LoadingFrame_", Index))
                 if ResolvedImage and ResolvedImage ~= "" then
                     table.insert(Frames, ResolvedImage)
                 end
@@ -15120,10 +15451,7 @@ function Library:CreateLoading(LoadingInfo)
                     Value = tonumber(Stop) or Value
                 end
 
-                table.insert(
-                    Keypoints,
-                    NumberSequenceKeypoint.new(math.clamp(Position, 0, 1), math.clamp(Value, 0, 1))
-                )
+                table.insert(Keypoints, NumberSequenceKeypoint.new(math.clamp(Position, 0, 1), math.clamp(Value, 0, 1)))
             end
         end
 
@@ -15218,7 +15546,8 @@ function Library:CreateLoading(LoadingInfo)
         end)
     end
 
-    local UseProgressTexture = LoadingInfo.ProgressTexture or LoadingInfo.ProgressShine
+    local UseProgressTexture = LoadingInfo.ProgressTexture
+        or LoadingInfo.ProgressShine
         or typeof(LoadingInfo.ProgressTextureFrames) == "table"
     local ProgressTextureTransparency = math.clamp(tonumber(LoadingInfo.ProgressTextureTransparency) or 0.42, 0, 1)
     local ProgressTextureSpeed = math.max(0, tonumber(LoadingInfo.ProgressTextureSpeed) or 0)
@@ -15257,11 +15586,16 @@ function Library:CreateLoading(LoadingInfo)
     local ProgressTrackTextureColor = LoadingInfo.ProgressTrackTextureColor or "AccentColor"
     local ProgressTrackTextureTileSize = LoadingInfo.ProgressTrackTextureTileSize or ProgressTextureTileSize
     local ProgressBarHeight = tonumber(LoadingInfo.ProgressBarHeight)
-    if not ProgressBarHeight and typeof(LoadingInfo.ProgressBarSize) == "UDim2" and LoadingInfo.ProgressBarSize.Y.Offset ~= 0 then
+    if
+        not ProgressBarHeight
+        and typeof(LoadingInfo.ProgressBarSize) == "UDim2"
+        and LoadingInfo.ProgressBarSize.Y.Offset ~= 0
+    then
         ProgressBarHeight = math.abs(LoadingInfo.ProgressBarSize.Y.Offset)
     end
     ProgressBarHeight = math.max(4, ProgressBarHeight or 15)
-    local ProgressBarPadding = math.clamp(tonumber(LoadingInfo.ProgressBarPadding) or 0, 0, math.floor(ProgressBarHeight / 2))
+    local ProgressBarPadding =
+        math.clamp(tonumber(LoadingInfo.ProgressBarPadding) or 0, 0, math.floor(ProgressBarHeight / 2))
     local ProgressBarSize = LoadingInfo.ProgressBarSize or UDim2.new(0.7, 0, 0, ProgressBarHeight)
     local ProgressBarTransparency = math.clamp(tonumber(LoadingInfo.ProgressBarTransparency) or 0, 0, 1)
     local ProgressFillTransparency = math.clamp(tonumber(LoadingInfo.ProgressFillTransparency) or 0, 0, 1)
@@ -15275,13 +15609,10 @@ function Library:CreateLoading(LoadingInfo)
     local ProgressCapTransparency = math.clamp(tonumber(LoadingInfo.ProgressCapTransparency) or 0.12, 0, 1)
     local SmoothProgress = LoadingInfo.SmoothProgress ~= false
     local SmoothProgressDuration = tonumber(LoadingInfo.SmoothProgressDuration)
-    local SmoothProgressDefaultDuration =
-        math.max(0.05, tonumber(LoadingInfo.SmoothProgressDefaultDuration) or 0.58)
+    local SmoothProgressDefaultDuration = math.max(0.05, tonumber(LoadingInfo.SmoothProgressDefaultDuration) or 0.58)
     local SmoothProgressMinDuration = math.max(0.02, tonumber(LoadingInfo.SmoothProgressMinDuration) or 0.26)
-    local SmoothProgressMaxDuration = math.max(
-        SmoothProgressMinDuration,
-        tonumber(LoadingInfo.SmoothProgressMaxDuration) or 1.45
-    )
+    local SmoothProgressMaxDuration =
+        math.max(SmoothProgressMinDuration, tonumber(LoadingInfo.SmoothProgressMaxDuration) or 1.45)
     local SmoothProgressCadenceScale = math.clamp(tonumber(LoadingInfo.SmoothProgressCadenceScale) or 0.86, 0.1, 2)
     local function GetTextureScrollOffset(TileSize, Fallback)
         if typeof(TileSize) == "UDim2" and TileSize.X.Offset ~= 0 then
@@ -15360,10 +15691,7 @@ function Library:CreateLoading(LoadingInfo)
         end,
         BackgroundTransparency = SurfaceTransparency,
         Position = UseEntranceAnimation and UDim2.new(0.5, 0, 0.5, 18) or UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.fromOffset(
-            GetLoadingFrameWidth(),
-            Loading.WindowHeight
-        ),
+        Size = UDim2.fromOffset(GetLoadingFrameWidth(), Loading.WindowHeight),
         ClipsDescendants = true,
         Text = "",
         AutoButtonColor = false,
@@ -15439,11 +15767,10 @@ function Library:CreateLoading(LoadingInfo)
         end
 
         if not TransitionOverlay then
-            local ColorSequenceValue, TransparencySequenceValue =
-                BuildLoadingGradientSequences(
-                    LoadingInfo.GradientTransitionStops,
-                    LoadingInfo.GradientTransitionTransparency or LoadingInfo.GradientTransitionTransparencyStops
-                )
+            local ColorSequenceValue, TransparencySequenceValue = BuildLoadingGradientSequences(
+                LoadingInfo.GradientTransitionStops,
+                LoadingInfo.GradientTransitionTransparency or LoadingInfo.GradientTransitionTransparencyStops
+            )
 
             TransitionOverlay = New("Frame", {
                 Name = "GradientTransitionOverlay",
@@ -15618,7 +15945,12 @@ function Library:CreateLoading(LoadingInfo)
                 })
 
                 AddDrawingCorner(DrawingTexture, Info.TextureCornerRadius or Info.CornerRadius or Info.Radius)
-                StartImageFrameAnimation(DrawingTexture, DrawingTextureFrames, Info.FrameRate or Info.FPS, DrawingTexture)
+                StartImageFrameAnimation(
+                    DrawingTexture,
+                    DrawingTextureFrames,
+                    Info.FrameRate or Info.FPS,
+                    DrawingTexture
+                )
             end
         end
 
@@ -15661,7 +15993,8 @@ function Library:CreateLoading(LoadingInfo)
             Library:AddGradient(Drawing, Info.Gradient)
         end
 
-        local DrawingFrames = ResolveLoadingImageFrames(Info.Frames or Info.Images, "LoadingDrawingImageFrame_", Drawing.Image)
+        local DrawingFrames =
+            ResolveLoadingImageFrames(Info.Frames or Info.Images, "LoadingDrawingImageFrame_", Drawing.Image)
         StartImageFrameAnimation(Drawing, DrawingFrames, Info.FrameRate or Info.FPS, Drawing)
 
         return TrackDrawing(Drawing)
@@ -15832,8 +16165,8 @@ function Library:CreateLoading(LoadingInfo)
                 continue
             end
 
-            local DrawingType = tostring(DrawingInfo.Type or DrawingInfo.Kind or (DrawingInfo.Image and "Image" or "Frame"))
-                :lower()
+            local DrawingType =
+                tostring(DrawingInfo.Type or DrawingInfo.Kind or (DrawingInfo.Image and "Image" or "Frame")):lower()
             if DrawingType == "image" or DrawingType == "texture" then
                 Loading:AddDrawingImage(DrawingInfo)
             elseif DrawingType == "line" then
@@ -15859,7 +16192,6 @@ function Library:CreateLoading(LoadingInfo)
             TweenInfo.new(EntranceAnimationDuration, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
             { Scale = TargetScale }
         )
-
     end
     if UseEntranceAnimation then
         PlayLoadingGradientTransition(false)
@@ -15884,7 +16216,6 @@ function Library:CreateLoading(LoadingInfo)
             TweenInfo.new(8, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1),
             { Rotation = 380 }
         )
-
     end
 
     if LoadingInfo.Animated and LoadingInfo.Particles and ParticleCount > 0 then
@@ -16236,7 +16567,12 @@ function Library:CreateLoading(LoadingInfo)
                 { Position = UDim2.fromOffset(-ProgressTrackTextureScrollOffset, 0) }
             )
         end
-        StartImageFrameAnimation(TrackTexture, ProgressTrackTextureFrames, ProgressTrackTextureFrameRate, "ProgressTrack")
+        StartImageFrameAnimation(
+            TrackTexture,
+            ProgressTrackTextureFrames,
+            ProgressTrackTextureFrameRate,
+            "ProgressTrack"
+        )
     end
 
     local SliderFill = New("Frame", {
@@ -16264,10 +16600,7 @@ function Library:CreateLoading(LoadingInfo)
         ZIndex = 5,
         Parent = SliderContent,
     })
-    table.insert(
-        Library.Corners,
-        New("UICorner", { CornerRadius = UDim.new(1, 0), Parent = SliderCap })
-    )
+    table.insert(Library.Corners, New("UICorner", { CornerRadius = UDim.new(1, 0), Parent = SliderCap }))
     Library:AddGradient(SliderCap, {
         Rotation = 90,
         Transparency = NumberSequence.new({
@@ -16408,7 +16741,8 @@ function Library:CreateLoading(LoadingInfo)
 
         ProgressAnimationElapsed += math.clamp(DeltaTime or 0, 0, 1 / 15)
         local Alpha = math.clamp(ProgressAnimationElapsed / ProgressAnimationDuration, 0, 1)
-        DisplayedProgress = ProgressAnimationStart + ((TargetProgress - ProgressAnimationStart) * EaseLoadingProgress(Alpha))
+        DisplayedProgress = ProgressAnimationStart
+            + ((TargetProgress - ProgressAnimationStart) * EaseLoadingProgress(Alpha))
         ApplyDisplayedProgress(DisplayedProgress)
 
         if Alpha >= 1 then
@@ -16670,21 +17004,34 @@ function Library:CreateLoading(LoadingInfo)
 
         if ProgressTexture then
             ProgressTexture.Image = ProgressTextureImage or ""
-            StartImageFrameAnimation(ProgressTexture, ProgressTextureFrames, ProgressTextureFrameRate, "ProgressTexture")
+            StartImageFrameAnimation(
+                ProgressTexture,
+                ProgressTextureFrames,
+                ProgressTextureFrameRate,
+                "ProgressTexture"
+            )
         end
 
         if TrackTexture and not HasCustomProgressTrackTexture then
             ProgressTrackTextureFrames = ProgressTextureFrames
             ProgressTrackTextureImage = ProgressTextureImage
             TrackTexture.Image = ProgressTextureImage or ""
-            StartImageFrameAnimation(TrackTexture, ProgressTrackTextureFrames, ProgressTrackTextureFrameRate, "ProgressTrack")
+            StartImageFrameAnimation(
+                TrackTexture,
+                ProgressTrackTextureFrames,
+                ProgressTrackTextureFrameRate,
+                "ProgressTrack"
+            )
         end
     end
 
     function Loading:SetProgressTrackTexture(Image)
         HasCustomProgressTrackTexture = true
-        ProgressTrackTextureImage =
-            ResolveLoadingImageAsset(Image, "LoadingBarTrackTexture_", ProgressTextureImage or DefaultProgressTextureImage)
+        ProgressTrackTextureImage = ResolveLoadingImageAsset(
+            Image,
+            "LoadingBarTrackTexture_",
+            ProgressTextureImage or DefaultProgressTextureImage
+        )
         ProgressTrackTextureFrames = { ProgressTrackTextureImage }
         StopImageFrameAnimation("ProgressTrack")
         if TrackTexture then
@@ -16694,8 +17041,11 @@ function Library:CreateLoading(LoadingInfo)
 
     function Loading:SetProgressTrackTextureFrames(Images, FrameRate)
         HasCustomProgressTrackTexture = true
-        ProgressTrackTextureFrames =
-            ResolveLoadingImageFrames(Images, "LoadingBarTrackFrame_", ProgressTrackTextureImage or ProgressTextureImage)
+        ProgressTrackTextureFrames = ResolveLoadingImageFrames(
+            Images,
+            "LoadingBarTrackFrame_",
+            ProgressTrackTextureImage or ProgressTextureImage
+        )
         ProgressTrackTextureFrameRate = math.clamp(tonumber(FrameRate) or ProgressTrackTextureFrameRate, 1, 60)
 
         if #ProgressTrackTextureFrames > 0 then
@@ -16704,7 +17054,12 @@ function Library:CreateLoading(LoadingInfo)
 
         if TrackTexture then
             TrackTexture.Image = ProgressTrackTextureImage or ProgressTextureImage or ""
-            StartImageFrameAnimation(TrackTexture, ProgressTrackTextureFrames, ProgressTrackTextureFrameRate, "ProgressTrack")
+            StartImageFrameAnimation(
+                TrackTexture,
+                ProgressTrackTextureFrames,
+                ProgressTrackTextureFrameRate,
+                "ProgressTrack"
+            )
         end
     end
 
@@ -16716,8 +17071,7 @@ function Library:CreateLoading(LoadingInfo)
     end
 
     function Loading:SetProgressTrackTextureTransparency(Transparency)
-        ProgressTrackTextureTransparency =
-            math.clamp(tonumber(Transparency) or ProgressTrackTextureTransparency, 0, 1)
+        ProgressTrackTextureTransparency = math.clamp(tonumber(Transparency) or ProgressTrackTextureTransparency, 0, 1)
         if TrackTexture then
             TrackTexture.ImageTransparency = ProgressTrackTextureTransparency
         end
@@ -16976,20 +17330,24 @@ function Library:CreateLoading(LoadingInfo)
 
         if LoadingInfo.Animated and LoadingInfo.ExitAnimation and ScreenGui.Parent then
             MainFrame.Active = false
-            TweenService:Create(
-                MainFrame,
-                TweenInfo.new(ExitAnimationDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
-                {
-                    BackgroundTransparency = 1,
-                    Position = UDim2.new(0.5, 0, 0.5, 14),
-                }
-            ):Play()
-            if SurfaceFill then
-                TweenService:Create(
-                    SurfaceFill,
+            TweenService
+                :Create(
+                    MainFrame,
                     TweenInfo.new(ExitAnimationDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
-                    { BackgroundTransparency = 1 }
-                ):Play()
+                    {
+                        BackgroundTransparency = 1,
+                        Position = UDim2.new(0.5, 0, 0.5, 14),
+                    }
+                )
+                :Play()
+            if SurfaceFill then
+                TweenService
+                    :Create(
+                        SurfaceFill,
+                        TweenInfo.new(ExitAnimationDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+                        { BackgroundTransparency = 1 }
+                    )
+                    :Play()
             end
             TweenService:Create(
                 MainScale,
@@ -16998,11 +17356,13 @@ function Library:CreateLoading(LoadingInfo)
             ):Play()
 
             if Backdrop then
-                TweenService:Create(
-                    Backdrop,
-                    TweenInfo.new(ExitAnimationDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
-                    { BackgroundTransparency = 1 }
-                ):Play()
+                TweenService
+                    :Create(
+                        Backdrop,
+                        TweenInfo.new(ExitAnimationDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+                        { BackgroundTransparency = 1 }
+                    )
+                    :Play()
             end
 
             local ExitTransitionDelay = math.max(ExitAnimationDuration, PlayLoadingGradientTransition(true))
