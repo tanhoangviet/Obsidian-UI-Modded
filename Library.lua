@@ -666,17 +666,20 @@ local Templates = {
         DynamicIslandHeight = nil,
         DynamicIslandPosition = UDim2.new(0.5, 0, 0, 8),
         DynamicIslandAnchorPoint = Vector2.new(0.5, 0),
-        DynamicIslandSize = UDim2.fromOffset(132, 36),
-        DynamicIslandExpandedSize = UDim2.fromOffset(158, 36),
-        DynamicIslandIdleSize = UDim2.fromOffset(84, 36),
-        DynamicIslandAssetSize = UDim2.fromOffset(20, 20),
-        DynamicIslandLockIconSize = UDim2.fromOffset(15, 15),
+        DynamicIslandSize = UDim2.fromOffset(120, 36),
+        DynamicIslandExpandedSize = UDim2.fromOffset(146, 36),
+        DynamicIslandIdleSize = UDim2.fromOffset(42, 36),
+        DynamicIslandAssetSize = UDim2.fromOffset(18, 18),
+        DynamicIslandLockIconSize = UDim2.fromOffset(13, 13),
         DynamicIslandFont = Font.fromEnum(Enum.Font.GothamMedium),
         DynamicIslandZIndex = 250,
         DynamicIslandTransparency = 0,
         DynamicIslandIdleTransparency = 0.16,
         DynamicIslandGlassTransparency = 0.88,
         DynamicIslandBorderThickness = 1.35,
+        DynamicIslandHideContentWhenIdle = true,
+        DynamicIslandGradientAnimation = true,
+        DynamicIslandGradientAnimationSpeed = 2.8,
         DynamicIslandLockedIcon = "https://api.iconify.design/solar:lock-keyhole-minimalistic-bold.svg?color=%23ffffff",
         DynamicIslandUnlockedIcon = "https://api.iconify.design/solar:lock-keyhole-minimalistic-unlocked-bold.svg?color=%23ffffff",
         DynamicIslandIdlePosition = UDim2.new(0.5, 0, 0, 2),
@@ -11121,9 +11124,9 @@ function Library:CreateWindow(WindowInfo)
             return UDim2.new(Size.X.Scale, WidthOffset, 0, HeightOffset)
         end
 
-        local CollapsedSize = ApplyIslandHeight(WindowInfo.DynamicIslandSize, 132)
-        local ExpandedSize = ApplyIslandHeight(WindowInfo.DynamicIslandExpandedSize, 158)
-        local IdleSize = ApplyIslandHeight(WindowInfo.DynamicIslandIdleSize, 84)
+        local CollapsedSize = ApplyIslandHeight(WindowInfo.DynamicIslandSize, 120)
+        local ExpandedSize = ApplyIslandHeight(WindowInfo.DynamicIslandExpandedSize, 146)
+        local IdleSize = ApplyIslandHeight(WindowInfo.DynamicIslandIdleSize, 42)
         local ActivePosition = if UseTopbarHeight
             then UDim2.new(0.5, 0, 0, TopbarY)
             else (WindowInfo.DynamicIslandPosition or UDim2.new(0.5, 0, 0, 8))
@@ -11134,9 +11137,12 @@ function Library:CreateWindow(WindowInfo)
         local IdleTransparency = math.clamp(tonumber(WindowInfo.DynamicIslandIdleTransparency) or 0.16, 0, 1)
         local GlassTransparency = math.clamp(tonumber(WindowInfo.DynamicIslandGlassTransparency) or 0.88, 0, 1)
         local BorderThickness = math.max(1, tonumber(WindowInfo.DynamicIslandBorderThickness) or 1.35)
+        local HideContentWhenIdle = WindowInfo.DynamicIslandHideContentWhenIdle ~= false
+        local GradientAnimationEnabled = WindowInfo.DynamicIslandGradientAnimation ~= false
+        local GradientAnimationSpeed = math.max(1.2, tonumber(WindowInfo.DynamicIslandGradientAnimationSpeed) or 2.8)
         local IslandFont = WindowInfo.DynamicIslandFont or Font.fromEnum(Enum.Font.GothamMedium)
-        local AssetSize = WindowInfo.DynamicIslandAssetSize or UDim2.fromOffset(20, 20)
-        local LockIconSize = WindowInfo.DynamicIslandLockIconSize or UDim2.fromOffset(15, 15)
+        local AssetSize = WindowInfo.DynamicIslandAssetSize or UDim2.fromOffset(18, 18)
+        local LockIconSize = WindowInfo.DynamicIslandLockIconSize or UDim2.fromOffset(13, 13)
         local AssetWidth = math.max(16, AssetSize.X.Offset ~= 0 and AssetSize.X.Offset or TopbarHeight - 16)
         local LockIconWidth = math.max(12, LockIconSize.X.Offset ~= 0 and LockIconSize.X.Offset or 15)
         local TextLeft = 11 + AssetWidth + 7
@@ -11171,7 +11177,7 @@ function Library:CreateWindow(WindowInfo)
             Transparency = 0.04,
             Parent = Island,
         })
-        Library:AddGradient(OutlineStroke, {
+        local OutlineGradient = Library:AddGradient(OutlineStroke, {
             Color = function()
                 return ColorSequence.new({
                     ColorSequenceKeypoint.new(0, Library.Scheme.AccentColor),
@@ -11203,6 +11209,33 @@ function Library:CreateWindow(WindowInfo)
                 NumberSequenceKeypoint.new(0, 0.62),
                 NumberSequenceKeypoint.new(0.5, 0.92),
                 NumberSequenceKeypoint.new(1, 0.72),
+            }),
+        })
+
+        local ShineLayer = New("Frame", {
+            BackgroundColor3 = "WhiteColor",
+            BackgroundTransparency = 0.86,
+            Size = UDim2.fromScale(1, 1),
+            ZIndex = Island.ZIndex + 1,
+            Parent = Island,
+        })
+        table.insert(Library.Corners, New("UICorner", { CornerRadius = UDim.new(1, 0), Parent = ShineLayer }))
+        local ShineGradient = Library:AddGradient(ShineLayer, {
+            Color = function()
+                return ColorSequence.new({
+                    ColorSequenceKeypoint.new(0, Library.Scheme.WhiteColor),
+                    ColorSequenceKeypoint.new(0.5, Library:GetBetterColor(Library.Scheme.AccentColor, 32)),
+                    ColorSequenceKeypoint.new(1, Library.Scheme.WhiteColor),
+                })
+            end,
+            Offset = Vector2.new(-1, 0),
+            Rotation = 28,
+            Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 1),
+                NumberSequenceKeypoint.new(0.42, 1),
+                NumberSequenceKeypoint.new(0.5, 0.58),
+                NumberSequenceKeypoint.new(0.58, 1),
+                NumberSequenceKeypoint.new(1, 1),
             }),
         })
 
@@ -11289,6 +11322,7 @@ function Library:CreateWindow(WindowInfo)
         local IsIdle = false
         local IsPressing = false
         local LongPressTriggered = false
+        local ContentVisibilityToken = 0
         local LockedIcon = ResolveDynamicIslandAsset(WindowInfo.DynamicIslandLockedIcon or DynamicIslandLockedIconUrl)
         local UnlockedIcon = ResolveDynamicIslandAsset(WindowInfo.DynamicIslandUnlockedIcon or DynamicIslandUnlockedIconUrl)
 
@@ -11309,8 +11343,23 @@ function Library:CreateWindow(WindowInfo)
             StatusDot.ImageTransparency = IsIdle and 0.34 or (Locked and 0.04 or 0.18)
         end
 
+        local function SetIslandContentVisible(Visible: boolean)
+            if not HideContentWhenIdle then
+                Visible = true
+            end
+
+            AssetHolder.Visible = Visible
+            TextHolder.Visible = Visible
+            StatusDot.Visible = Visible
+        end
+
         local function SetIslandIdleState(Idle, Instant)
             IsIdle = Idle == true
+            ContentVisibilityToken += 1
+            local CurrentContentVisibilityToken = ContentVisibilityToken
+            if not IsIdle or not HideContentWhenIdle then
+                SetIslandContentVisible(true)
+            end
 
             local TargetSize = IsIdle and IdleSize or (Library.Toggled and ExpandedSize or CollapsedSize)
             local TargetPosition = IsIdle and IdlePosition or ActivePosition
@@ -11318,8 +11367,11 @@ function Library:CreateWindow(WindowInfo)
             local TargetBorderTransparency = IsIdle and 0.22 or (Library.Toggled and 0.01 or 0.04)
             local TargetGlowTransparency = IsIdle and 0.9 or (Library.Toggled and 0.72 or 0.82)
             local TargetGlassTransparency = math.clamp(GlassTransparency + (IsIdle and 0.05 or 0), 0, 1)
-            local TargetIconTransparency = IsIdle and 0.3 or 0
-            local TargetLockTransparency = IsIdle and 0.34 or (Library.CantDragForced and 0.04 or 0.18)
+            local TargetShineTransparency = IsIdle and 0.94 or 0.86
+            local TargetTitleTransparency = IsIdle and 1 or 0
+            local TargetStatusTransparency = IsIdle and 1 or 0.45
+            local TargetIconTransparency = IsIdle and 1 or 0
+            local TargetLockTransparency = IsIdle and 1 or (Library.CantDragForced and 0.04 or 0.18)
             local TweenTime = Instant and 0 or (IsIdle and 0.28 or 0.2)
 
             if Instant then
@@ -11329,10 +11381,12 @@ function Library:CreateWindow(WindowInfo)
                 OutlineStroke.Transparency = TargetBorderTransparency
                 OuterGlowStroke.Transparency = TargetGlowTransparency
                 GlassLayer.BackgroundTransparency = TargetGlassTransparency
-                TitleLabel.TextTransparency = IsIdle and 0.2 or 0
-                StatusLabel.TextTransparency = IsIdle and 1 or 0.45
+                ShineLayer.BackgroundTransparency = TargetShineTransparency
+                TitleLabel.TextTransparency = TargetTitleTransparency
+                StatusLabel.TextTransparency = TargetStatusTransparency
                 AssetImage.ImageTransparency = TargetIconTransparency
                 StatusDot.ImageTransparency = TargetLockTransparency
+                SetIslandContentVisible(not IsIdle or not HideContentWhenIdle)
                 return
             end
 
@@ -11350,11 +11404,14 @@ function Library:CreateWindow(WindowInfo)
             TweenService:Create(GlassLayer, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 BackgroundTransparency = TargetGlassTransparency,
             }):Play()
+            TweenService:Create(ShineLayer, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                BackgroundTransparency = TargetShineTransparency,
+            }):Play()
             TweenService:Create(TitleLabel, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                TextTransparency = IsIdle and 0.2 or 0,
+                TextTransparency = TargetTitleTransparency,
             }):Play()
             TweenService:Create(StatusLabel, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                TextTransparency = IsIdle and 1 or 0.45,
+                TextTransparency = TargetStatusTransparency,
             }):Play()
             TweenService:Create(AssetImage, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 ImageTransparency = TargetIconTransparency,
@@ -11362,7 +11419,83 @@ function Library:CreateWindow(WindowInfo)
             TweenService:Create(StatusDot, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 ImageTransparency = TargetLockTransparency,
             }):Play()
+
+            if IsIdle and HideContentWhenIdle then
+                task.delay(TweenTime + 0.03, function()
+                    if CurrentContentVisibilityToken == ContentVisibilityToken and IsIdle then
+                        SetIslandContentVisible(false)
+                    end
+                end)
+            end
         end
+
+        local GradientAnimationToken = 0
+        local ActiveGradientTweens = {}
+        local function StopDynamicIslandGradientAnimation()
+            GradientAnimationToken += 1
+            for _, Tween in ActiveGradientTweens do
+                pcall(function()
+                    Tween:Cancel()
+                end)
+            end
+            table.clear(ActiveGradientTweens)
+        end
+
+        local function PlayDynamicIslandGradientAnimation()
+            if not GradientAnimationEnabled then
+                ShineLayer.Visible = false
+                return
+            end
+
+            GradientAnimationToken += 1
+            local CurrentGradientToken = GradientAnimationToken
+            local Direction = 1
+
+            local function PlayCycle()
+                if CurrentGradientToken ~= GradientAnimationToken or not Island.Parent then
+                    return
+                end
+
+                Direction *= -1
+                IslandGradient.Offset = Vector2.new(-0.5 * Direction, 0)
+                OutlineGradient.Offset = Vector2.new(-0.45 * Direction, 0)
+                ShineGradient.Offset = Vector2.new(-1.1 * Direction, 0)
+
+                local TweenStyle = TweenInfo.new(GradientAnimationSpeed, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+                local GlassTween = TweenService:Create(IslandGradient, TweenStyle, {
+                    Offset = Vector2.new(0.5 * Direction, 0),
+                    Rotation = 18 + (8 * Direction),
+                })
+                local OutlineTween = TweenService:Create(OutlineGradient, TweenStyle, {
+                    Offset = Vector2.new(0.45 * Direction, 0),
+                    Rotation = 8 * Direction,
+                })
+                local ShineTween = TweenService:Create(ShineGradient, TweenStyle, {
+                    Offset = Vector2.new(1.1 * Direction, 0),
+                    Rotation = 28 + (4 * Direction),
+                })
+
+                ActiveGradientTweens = { GlassTween, OutlineTween, ShineTween }
+                local CompletedConnection
+                CompletedConnection = GlassTween.Completed:Connect(function()
+                    if CompletedConnection then
+                        CompletedConnection:Disconnect()
+                    end
+                    if CurrentGradientToken == GradientAnimationToken and Island.Parent then
+                        task.delay(0.1, PlayCycle)
+                    end
+                end)
+
+                GlassTween:Play()
+                OutlineTween:Play()
+                ShineTween:Play()
+            end
+
+            PlayCycle()
+        end
+
+        Library:OnUnload(StopDynamicIslandGradientAnimation)
+        PlayDynamicIslandGradientAnimation()
 
         function Controller:Wake()
             IdleToken += 1
