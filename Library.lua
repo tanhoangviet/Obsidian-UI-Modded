@@ -668,7 +668,14 @@ local Templates = {
         DynamicIslandAnchorPoint = Vector2.new(0.5, 0),
         DynamicIslandSize = UDim2.fromOffset(120, 36),
         DynamicIslandExpandedSize = UDim2.fromOffset(146, 36),
-        DynamicIslandIdleSize = UDim2.fromOffset(42, 36),
+        DynamicIslandIdleSize = nil,
+        DynamicIslandScale = 0.75,
+        DynamicIslandIdleScale = 0.75,
+        DynamicIslandTopbarHeightScale = 0.75,
+        DynamicIslandMinHeight = nil,
+        DynamicIslandMaxHeight = nil,
+        DynamicIslandCornerRadius = nil,
+        DynamicIslandIdleCornerRadius = 0,
         DynamicIslandAssetSize = UDim2.fromOffset(18, 18),
         DynamicIslandLockIconSize = UDim2.fromOffset(13, 13),
         DynamicIslandFont = Font.fromEnum(Enum.Font.GothamMedium),
@@ -11093,40 +11100,69 @@ function Library:CreateWindow(WindowInfo)
         local UseTopbarHeight = WindowInfo.DynamicIslandUseTopbarHeight ~= false
         local function GetTopbarMetrics()
             local TopbarY = 0
-            local TopbarHeight = Library.IsMobile and 54 or 36
+            local TopbarHeight = Library.IsMobile and 44 or 36
 
             local TopbarSuccess, TopbarInset = pcall(function()
                 return GuiService.TopbarInset
             end)
             if TopbarSuccess and typeof(TopbarInset) == "Rect" then
                 TopbarY = math.max(0, TopbarInset.Min.Y)
-                TopbarHeight = math.max(TopbarHeight, TopbarInset.Max.Y - TopbarInset.Min.Y)
+                local MeasuredHeight = TopbarInset.Max.Y - TopbarInset.Min.Y
+                if MeasuredHeight > 0 then
+                    TopbarHeight = MeasuredHeight
+                end
             else
                 local InsetSuccess, TopLeftInset = pcall(function()
                     return GuiService:GetGuiInset()
                 end)
                 if InsetSuccess and typeof(TopLeftInset) == "Vector2" then
-                    TopbarHeight = math.max(TopbarHeight, TopLeftInset.Y)
+                    if TopLeftInset.Y > 0 then
+                        TopbarHeight = TopLeftInset.Y
+                    end
                 end
             end
 
-            return TopbarY, math.floor((tonumber(WindowInfo.DynamicIslandHeight) or TopbarHeight) + 0.5)
+            local HeightScale = math.clamp(tonumber(WindowInfo.DynamicIslandTopbarHeightScale) or 0.75, 0.5, 1)
+            local MinHeight = tonumber(WindowInfo.DynamicIslandMinHeight) or (Library.IsMobile and 30 or 28)
+            local MaxHeight = tonumber(WindowInfo.DynamicIslandMaxHeight) or (Library.IsMobile and 44 or 36)
+            local HeightOverride = tonumber(WindowInfo.DynamicIslandHeight)
+            local TargetHeight = HeightOverride or (TopbarHeight * HeightScale)
+            if HeightOverride then
+                TargetHeight = math.max(1, TargetHeight)
+            else
+                TargetHeight = math.clamp(TargetHeight, MinHeight, math.max(MinHeight, MaxHeight))
+            end
+
+            return TopbarY, math.floor(TargetHeight + 0.5)
         end
 
         local TopbarY, TopbarHeight = GetTopbarMetrics()
+        local DynamicIslandScale = math.clamp(tonumber(WindowInfo.DynamicIslandScale) or 0.75, 0.5, 1.2)
+        local DynamicIslandIdleScale = math.clamp(tonumber(WindowInfo.DynamicIslandIdleScale) or 0.75, 0.25, 1)
         local function ApplyIslandHeight(Size, DefaultWidth)
             if typeof(Size) ~= "UDim2" then
-                return UDim2.fromOffset(DefaultWidth, TopbarHeight)
+                return UDim2.fromOffset(math.floor((DefaultWidth * DynamicIslandScale) + 0.5), TopbarHeight)
             end
 
             local WidthOffset = Size.X.Offset ~= 0 and Size.X.Offset or DefaultWidth
+            WidthOffset = math.floor((WidthOffset * DynamicIslandScale) + 0.5)
             local HeightOffset = UseTopbarHeight and TopbarHeight or (Size.Y.Offset ~= 0 and Size.Y.Offset or TopbarHeight)
             return UDim2.new(Size.X.Scale, WidthOffset, 0, HeightOffset)
         end
 
         local CollapsedSize = ApplyIslandHeight(WindowInfo.DynamicIslandSize, 120)
         local ExpandedSize = ApplyIslandHeight(WindowInfo.DynamicIslandExpandedSize, 146)
-        local IdleSize = ApplyIslandHeight(WindowInfo.DynamicIslandIdleSize, 42)
+        local IdleSize
+        if typeof(WindowInfo.DynamicIslandIdleSize) == "UDim2" then
+            IdleSize = ApplyIslandHeight(WindowInfo.DynamicIslandIdleSize, CollapsedSize.X.Offset * DynamicIslandIdleScale)
+        else
+            IdleSize = UDim2.new(
+                CollapsedSize.X.Scale * DynamicIslandIdleScale,
+                math.max(TopbarHeight, math.floor((CollapsedSize.X.Offset * DynamicIslandIdleScale) + 0.5)),
+                0,
+                TopbarHeight
+            )
+        end
         local ActivePosition = if UseTopbarHeight
             then UDim2.new(0.5, 0, 0, TopbarY)
             else (WindowInfo.DynamicIslandPosition or UDim2.new(0.5, 0, 0, 8))
@@ -11149,6 +11185,20 @@ function Library:CreateWindow(WindowInfo)
         local IdleDelay = math.max(0.35, tonumber(WindowInfo.DynamicIslandIdleDelay) or 2.35)
         local HoldDuration = math.max(0.2, tonumber(WindowInfo.DynamicIslandHoldDuration) or 0.45)
         local IdleEnabled = WindowInfo.DynamicIslandIdle ~= false and WindowInfo.DynamicIslandIdleEnabled ~= false
+        local function ResolveIslandCornerRadius(Value, Default: UDim): UDim
+            if typeof(Value) == "UDim" then
+                return Value
+            end
+
+            local Offset = tonumber(Value)
+            if Offset then
+                return UDim.new(0, math.max(0, Offset))
+            end
+
+            return Default
+        end
+        local ActiveCornerRadius = ResolveIslandCornerRadius(WindowInfo.DynamicIslandCornerRadius, UDim.new(1, 0))
+        local IdleCornerRadius = ResolveIslandCornerRadius(WindowInfo.DynamicIslandIdleCornerRadius, UDim.new(0, 0))
         local Island = New("TextButton", {
             Name = "DynamicIslandToggle",
             Active = true,
@@ -11164,7 +11214,8 @@ function Library:CreateWindow(WindowInfo)
             ZIndex = WindowInfo.DynamicIslandZIndex or 250,
             Parent = FloatingSpritesGui,
         })
-        table.insert(Library.Corners, New("UICorner", { CornerRadius = UDim.new(1, 0), Parent = Island }))
+        local IslandCorner = New("UICorner", { CornerRadius = ActiveCornerRadius, Parent = Island })
+        table.insert(Library.Corners, IslandCorner)
         local OuterGlowStroke = New("UIStroke", {
             Color = "AccentColor",
             Thickness = BorderThickness + 2,
@@ -11195,7 +11246,8 @@ function Library:CreateWindow(WindowInfo)
             ZIndex = Island.ZIndex + 1,
             Parent = Island,
         })
-        table.insert(Library.Corners, New("UICorner", { CornerRadius = UDim.new(1, 0), Parent = GlassLayer }))
+        local GlassCorner = New("UICorner", { CornerRadius = ActiveCornerRadius, Parent = GlassLayer })
+        table.insert(Library.Corners, GlassCorner)
         local IslandGradient = Library:AddGradient(GlassLayer, {
             Color = function()
                 return ColorSequence.new({
@@ -11219,7 +11271,8 @@ function Library:CreateWindow(WindowInfo)
             ZIndex = Island.ZIndex + 1,
             Parent = Island,
         })
-        table.insert(Library.Corners, New("UICorner", { CornerRadius = UDim.new(1, 0), Parent = ShineLayer }))
+        local ShineCorner = New("UICorner", { CornerRadius = ActiveCornerRadius, Parent = ShineLayer })
+        table.insert(Library.Corners, ShineCorner)
         local ShineGradient = Library:AddGradient(ShineLayer, {
             Color = function()
                 return ColorSequence.new({
@@ -11368,6 +11421,7 @@ function Library:CreateWindow(WindowInfo)
             local TargetGlowTransparency = IsIdle and 0.9 or (Library.Toggled and 0.72 or 0.82)
             local TargetGlassTransparency = math.clamp(GlassTransparency + (IsIdle and 0.05 or 0), 0, 1)
             local TargetShineTransparency = IsIdle and 0.94 or 0.86
+            local TargetCornerRadius = IsIdle and IdleCornerRadius or ActiveCornerRadius
             local TargetTitleTransparency = IsIdle and 1 or 0
             local TargetStatusTransparency = IsIdle and 1 or 0.45
             local TargetIconTransparency = IsIdle and 1 or 0
@@ -11382,6 +11436,9 @@ function Library:CreateWindow(WindowInfo)
                 OuterGlowStroke.Transparency = TargetGlowTransparency
                 GlassLayer.BackgroundTransparency = TargetGlassTransparency
                 ShineLayer.BackgroundTransparency = TargetShineTransparency
+                IslandCorner.CornerRadius = TargetCornerRadius
+                GlassCorner.CornerRadius = TargetCornerRadius
+                ShineCorner.CornerRadius = TargetCornerRadius
                 TitleLabel.TextTransparency = TargetTitleTransparency
                 StatusLabel.TextTransparency = TargetStatusTransparency
                 AssetImage.ImageTransparency = TargetIconTransparency
@@ -11406,6 +11463,15 @@ function Library:CreateWindow(WindowInfo)
             }):Play()
             TweenService:Create(ShineLayer, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 BackgroundTransparency = TargetShineTransparency,
+            }):Play()
+            TweenService:Create(IslandCorner, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                CornerRadius = TargetCornerRadius,
+            }):Play()
+            TweenService:Create(GlassCorner, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                CornerRadius = TargetCornerRadius,
+            }):Play()
+            TweenService:Create(ShineCorner, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                CornerRadius = TargetCornerRadius,
             }):Play()
             TweenService:Create(TitleLabel, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 TextTransparency = TargetTitleTransparency,
