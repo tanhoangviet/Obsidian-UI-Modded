@@ -112,6 +112,15 @@ export type NotificationAction = {
 
 export type NotificationVariant = "Info" | "Success" | "Warning" | "Error"
 
+export type OptimizeInfo = {
+    OptimizeButton: boolean?,
+    Optimize: boolean?,
+    Optimizing: boolean?,
+    Optimizable: boolean?,
+    Collapsed: boolean?,
+    Optimized: boolean?,
+}
+
 export type NotificationInfo = {
     Title: string?,
     Description: string?,
@@ -1136,10 +1145,13 @@ export type BaseGroupbox = {
         & ((self: Groupbox, Info: PlayerCardInfo) -> PlayerCard),
     AddTopUserBox: ((self: Groupbox, Idx: string, Info: TopUserBoxInfo) -> TopUserBox)
         & ((self: Groupbox, Info: TopUserBoxInfo) -> TopUserBox),
-    AddTabbox: (self: Groupbox, Info: { Name: string?, Visible: boolean? } | string?) -> Tabbox,
-    AddTabBox: (self: Groupbox, Info: { Name: string?, Visible: boolean? } | string?) -> Tabbox,
-    AddNestedTabbox: (self: Groupbox, Info: { Name: string?, Visible: boolean? } | string?) -> Tabbox,
-    AddGroupboxTabbox: (self: Groupbox, Info: { Name: string?, Visible: boolean? } | string?) -> Tabbox,
+    AddTabbox: (self: Groupbox, Info: ({ Name: string?, Visible: boolean? } & OptimizeInfo) | string?) -> Tabbox,
+    AddTabBox: (self: Groupbox, Info: ({ Name: string?, Visible: boolean? } & OptimizeInfo) | string?) -> Tabbox,
+    AddNestedTabbox: (self: Groupbox, Info: ({ Name: string?, Visible: boolean? } & OptimizeInfo) | string?) -> Tabbox,
+    AddGroupboxTabbox: (
+        self: Groupbox,
+        Info: ({ Name: string?, Visible: boolean? } & OptimizeInfo) | string?
+    ) -> Tabbox,
     AddDependencyBox: (self: Groupbox) -> DependencyBox,
     AddDependencyGroupbox: (self: Groupbox) -> DependencyGroupbox,
 }
@@ -1182,8 +1194,13 @@ export type Groupbox = BaseGroupbox & {
     DependencyBoxes: { [number]: DependencyBox },
     Tabboxes: { [string]: Tabbox },
     Elements: { [number]: Element },
+    Collapsed: boolean?,
 
     Resize: (self: Groupbox) -> (),
+    SetCollapsed: (self: Groupbox, Collapsed: boolean) -> (),
+    ToggleCollapsed: (self: Groupbox) -> (),
+    SetOptimized: (self: Groupbox, Collapsed: boolean) -> (),
+    ToggleOptimized: (self: Groupbox) -> (),
 }
 
 export type SubTab = BaseGroupbox & {
@@ -1207,10 +1224,15 @@ export type Tabbox = {
     Text: string?,
     Type: "Tabbox"?,
     Visible: boolean?,
+    Collapsed: boolean?,
 
     AddTab: (self: Tabbox, Name: string, IconName: string?) -> SubTab,
     Resize: (self: Tabbox) -> (),
     SetVisible: (self: Tabbox, Visible: boolean) -> (),
+    SetCollapsed: (self: Tabbox, Collapsed: boolean) -> (),
+    ToggleCollapsed: (self: Tabbox) -> (),
+    SetOptimized: (self: Tabbox, Collapsed: boolean) -> (),
+    ToggleOptimized: (self: Tabbox) -> (),
     UpdateCorners: (self: Tabbox) -> (),
 }
 
@@ -1226,11 +1248,17 @@ export type Tab = {
         Info: { IsNormal: boolean?, LockSize: boolean?, Visible: boolean?, Title: string?, Text: string? }
     ) -> (),
     Resize: (self: Tab, ResizeWarningBox: boolean?) -> (),
-    AddGroupbox: (self: Tab, Info: { Side: number | string, Name: string, IconName: string? }) -> Groupbox,
+    AddGroupbox: (
+        self: Tab,
+        Info: { Side: number | string, Name: string, IconName: string? } & OptimizeInfo
+    ) -> Groupbox,
     AddLeftGroupbox: (self: Tab, Name: string, IconName: string?) -> Groupbox,
     AddRightGroupbox: (self: Tab, Name: string, IconName: string?) -> Groupbox,
     AddFullGroupbox: (self: Tab, Name: string, IconName: string?) -> Groupbox,
-    AddTabbox: (self: Tab, Info: { Side: number | string, Name: string? }) -> Tabbox,
+    AddTabbox: (
+        self: Tab,
+        Info: { Side: number | string, Name: string?, Visible: boolean? } & OptimizeInfo
+    ) -> Tabbox,
     AddLeftTabbox: (self: Tab, Name: string?) -> Tabbox,
     AddRightTabbox: (self: Tab, Name: string?) -> Tabbox,
     AddFullTabbox: (self: Tab, Name: string?) -> Tabbox,
@@ -1904,6 +1932,8 @@ export type Library = {
             ForceRedownload: boolean?,
             SliceCenter: Rect?,
             SliceScale: number?,
+            ScaleWithDPI: boolean?,
+            ScaleOffset: number?,
             ZIndex: number?,
             Parent: Instance?,
         }?
@@ -2084,6 +2114,8 @@ export type Library = {
             WindowGlowSize: number?,
             WindowGlowOffset: Vector2?,
             WindowGlowImage: string?,
+            GroupboxOptimizeButton: boolean?,
+            TabboxOptimizeButton: boolean?,
             TabsMode: "Sidebar" | "Topbar"?,
             TabStyle: "Default" | "Card"?,
             FullscreenBackground: boolean?,

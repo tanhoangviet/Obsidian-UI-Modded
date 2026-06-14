@@ -654,6 +654,8 @@ local Templates = {
         WindowGlowSize = 18,
         WindowGlowOffset = Vector2.new(0, 0),
         WindowGlowImage = nil,
+        GroupboxOptimizeButton = true,
+        TabboxOptimizeButton = true,
         TabsMode = "Sidebar", -- Sidebar, Topbar
         TabStyle = "Default", -- Default, Card
         FullscreenBackground = false,
@@ -2818,6 +2820,15 @@ function Library:AddShadowGlow(Frame: GuiObject, Info)
         Parent = Parent,
     })
 
+    if Info.ScaleWithDPI == true then
+        local ShadowScale = New("UIScale", {
+            Scale = Library.DPIScale,
+            Parent = Glow,
+        })
+        table.insert(Library.Scales, ShadowScale)
+        Library.ScalesOffset[ShadowScale] = tonumber(Info.ScaleOffset) or 0
+    end
+
     local TrackParent = Info.Parent == nil
     local function Sync()
         if not Glow.Parent then
@@ -3748,6 +3759,8 @@ end
 
 local CheckIcon = Library:GetIcon("check")
 local ArrowIcon = Library:GetIcon("chevron-up")
+local OptimizeUpIcon = Library:GetIcon("arrow-up") or ArrowIcon
+local OptimizeDownIcon = Library:GetIcon("arrow-down") or Library:GetIcon("chevron-down")
 local ResizeIcon = Library:GetIcon("move-diagonal-2")
 local KeyIcon = Library:GetIcon("key")
 local MoveIcon = Library:GetIcon("move")
@@ -3759,9 +3772,110 @@ function Library:SetIconModule(module: IconModule)
     -- Top ten fixes 🚀
     CheckIcon = Library:GetIcon("check")
     ArrowIcon = Library:GetIcon("chevron-up")
+    OptimizeUpIcon = Library:GetIcon("arrow-up") or ArrowIcon
+    OptimizeDownIcon = Library:GetIcon("arrow-down") or Library:GetIcon("chevron-down")
     ResizeIcon = Library:GetIcon("move-diagonal-2")
     KeyIcon = Library:GetIcon("key")
     MoveIcon = Library:GetIcon("move")
+end
+
+local function SetOptimizeIcon(IconLabel: ImageLabel, FallbackLabel: TextLabel, Collapsed: boolean)
+    local Icon = Collapsed and OptimizeDownIcon or OptimizeUpIcon
+    if Icon then
+        IconLabel.Image = Icon.Url
+        IconLabel.ImageRectOffset = Icon.ImageRectOffset
+        IconLabel.ImageRectSize = Icon.ImageRectSize
+        IconLabel.Visible = true
+        FallbackLabel.Visible = false
+        return
+    end
+
+    IconLabel.Visible = false
+    FallbackLabel.Visible = true
+    FallbackLabel.Text = Collapsed and "↓" or "↑"
+end
+
+local function CreateOptimizeButton(Parent: GuiObject, CornerRadius: number, OnClick: () -> ())
+    local Button = New("TextButton", {
+        Name = "OptimizeButton",
+        AnchorPoint = Vector2.new(1, 0),
+        BackgroundColor3 = "MainColor",
+        BackgroundTransparency = 0.18,
+        Position = UDim2.new(1, -4, 0, 4),
+        Size = UDim2.fromOffset(26, 26),
+        Text = "",
+        ZIndex = Parent.ZIndex + 2,
+        Parent = Parent,
+    })
+    table.insert(
+        Library.Corners,
+        New("UICorner", {
+            CornerRadius = UDim.new(0, math.max(3, math.floor(CornerRadius * 0.75))),
+            Parent = Button,
+        })
+    )
+    Library:AddOutline(Button, {
+        Color = "AccentColor",
+        Transparency = 0.58,
+        ShadowTransparency = 1,
+    })
+
+    local IconLabel = New("ImageLabel", {
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundTransparency = 1,
+        ImageColor3 = "AccentColor",
+        ImageTransparency = 0.05,
+        Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.fromOffset(16, 16),
+        ZIndex = Button.ZIndex + 1,
+        Parent = Button,
+    })
+    local FallbackLabel = New("TextLabel", {
+        BackgroundTransparency = 1,
+        FontFace = Library.Scheme.Font,
+        Size = UDim2.fromScale(1, 1),
+        Text = "↑",
+        TextColor3 = "AccentColor",
+        TextSize = 16,
+        Visible = false,
+        ZIndex = Button.ZIndex + 1,
+        Parent = Button,
+    })
+
+    Button.MouseEnter:Connect(function()
+        TweenService:Create(Button, Library.TweenInfo, {
+            BackgroundTransparency = 0.06,
+        }):Play()
+        TweenService:Create(IconLabel, Library.TweenInfo, {
+            ImageTransparency = 0,
+        }):Play()
+        TweenService:Create(FallbackLabel, Library.TweenInfo, {
+            TextTransparency = 0,
+        }):Play()
+    end)
+    Button.MouseLeave:Connect(function()
+        TweenService:Create(Button, Library.TweenInfo, {
+            BackgroundTransparency = 0.18,
+        }):Play()
+        TweenService:Create(IconLabel, Library.TweenInfo, {
+            ImageTransparency = 0.05,
+        }):Play()
+        TweenService:Create(FallbackLabel, Library.TweenInfo, {
+            TextTransparency = 0.05,
+        }):Play()
+    end)
+    Button.MouseButton1Click:Connect(function()
+        Library:SafeCallback(OnClick)
+    end)
+
+    return {
+        Button = Button,
+        Icon = IconLabel,
+        Fallback = FallbackLabel,
+        SetCollapsed = function(_, Collapsed: boolean)
+            SetOptimizeIcon(IconLabel, FallbackLabel, Collapsed)
+        end,
+    }
 end
 
 local BaseAddons = {}
@@ -9418,6 +9532,13 @@ do
 
         local Groupbox = self
         local Container = Groupbox.Container
+        local BoxWindowInfo = Groupbox.WindowInfo or {}
+        local OptimizeEnabled = BoxWindowInfo.TabboxOptimizeButton ~= false
+            and Info.OptimizeButton ~= false
+            and Info.Optimizing ~= false
+            and Info.Optimizable ~= false
+            and Info.Optimize ~= false
+        local StartCollapsed = Info.Collapsed == true or Info.Optimized == true
         local CornerRadius = math.max(3, math.floor(Library.CornerRadius * 0.65))
         local ButtonCornerRadius = 0
 
@@ -9443,7 +9564,7 @@ do
         local TabboxButtons = New("Frame", {
             BackgroundTransparency = 1,
             ClipsDescendants = true,
-            Size = UDim2.new(1, 0, 0, 34),
+            Size = UDim2.new(1, OptimizeEnabled and -31 or 0, 0, 34),
             Parent = TabboxHolder,
         })
         New("UIListLayout", {
@@ -9461,10 +9582,21 @@ do
             Text = Info.Name,
             Type = "Tabbox",
             Visible = Info.Visible ~= false,
+            Collapsed = StartCollapsed,
         }
 
         function Tabbox:Resize()
+            if Tabbox.Collapsed then
+                if Tabbox.ActiveTab then
+                    Tabbox.ActiveTab.Container.Visible = false
+                end
+                TabboxHolder.Size = UDim2.new(1, 0, 0, 34)
+                Groupbox:Resize()
+                return
+            end
+
             if Tabbox.ActiveTab then
+                Tabbox.ActiveTab.Container.Visible = true
                 Tabbox.ActiveTab:Resize()
             else
                 TabboxHolder.Size = UDim2.new(1, 0, 0, 34)
@@ -9476,6 +9608,30 @@ do
             Tabbox.Visible = Visible
             TabboxHolder.Visible = Visible
             Groupbox:Resize()
+        end
+
+        function Tabbox:SetCollapsed(Collapsed: boolean)
+            Tabbox.Collapsed = Collapsed == true
+            if Tabbox.ActiveTab then
+                Tabbox.ActiveTab.Container.Visible = not Tabbox.Collapsed
+            end
+            if Tabbox.OptimizeButton then
+                Tabbox.OptimizeButton:SetCollapsed(Tabbox.Collapsed)
+            end
+            Tabbox:Resize()
+        end
+
+        function Tabbox:ToggleCollapsed()
+            Tabbox:SetCollapsed(not Tabbox.Collapsed)
+        end
+
+        Tabbox.SetOptimized = Tabbox.SetCollapsed
+        Tabbox.ToggleOptimized = Tabbox.ToggleCollapsed
+
+        if OptimizeEnabled then
+            Tabbox.OptimizeButton = CreateOptimizeButton(TabboxHolder, CornerRadius, function()
+                Tabbox:ToggleCollapsed()
+            end)
         end
 
         function Tabbox:UpdateCorners()
@@ -9614,6 +9770,7 @@ do
                 },
 
                 Tab = Groupbox.Tab,
+                WindowInfo = Groupbox.WindowInfo,
                 Elements = {},
                 DependencyBoxes = {},
                 Tabboxes = {},
@@ -9635,7 +9792,7 @@ do
                 end
                 Line.Visible = false
 
-                TabContainer.Visible = true
+                TabContainer.Visible = not Tabbox.Collapsed
 
                 Tabbox.ActiveTab = Tab
                 Tab:Resize()
@@ -9659,6 +9816,13 @@ do
 
             function Tab:Resize()
                 if Tabbox.ActiveTab ~= Tab then
+                    return
+                end
+
+                if Tabbox.Collapsed then
+                    TabContainer.Visible = false
+                    TabboxHolder.Size = UDim2.new(1, 0, 0, 34)
+                    Groupbox:Resize()
                     return
                 end
 
@@ -9692,7 +9856,7 @@ do
             return Tab
         end
 
-        Tabbox:Resize()
+        Tabbox:SetCollapsed(StartCollapsed)
         table.insert(Groupbox.Elements, Tabbox)
 
         if Info.Name then
@@ -11629,9 +11793,9 @@ function Library:CreateWindow(WindowInfo)
                 then (IsIdle and 0.9 or (Library.Toggled and 0.72 or 0.82))
                 else 1
             local TargetImageGlowTransparency = if DynamicIslandGlowEnabled
-                then math.clamp(DynamicIslandGlowTransparency + (IsIdle and 0.08 or 0), 0, 1)
+                then (IsIdle and 1 or DynamicIslandGlowTransparency)
                 else 1
-            local TargetShadowTransparency = math.clamp(DynamicIslandShadowTransparency + (IsIdle and 0.12 or 0), 0, 1)
+            local TargetShadowTransparency = IsIdle and 1 or DynamicIslandShadowTransparency
             local TargetGlassTransparency = math.clamp(GlassTransparency + (IsIdle and 0.05 or 0), 0, 1)
             local TargetShineTransparency = IsIdle and 0.94 or 0.86
             local TargetCornerRadius = IsIdle and IdleCornerRadius or ActiveCornerRadius
@@ -12040,6 +12204,7 @@ function Library:CreateWindow(WindowInfo)
                 Size = WindowInfo.WindowShadowSize or 28,
                 Offset = WindowInfo.WindowShadowOffset or Vector2.new(0, 8),
                 Image = WindowInfo.WindowShadowImage,
+                ScaleWithDPI = true,
                 ZIndex = math.max(0, MainFrame.ZIndex - 1),
             })
         end
@@ -12051,6 +12216,7 @@ function Library:CreateWindow(WindowInfo)
                 Size = WindowInfo.WindowGlowSize or 18,
                 Offset = WindowInfo.WindowGlowOffset or Vector2.zero,
                 Image = WindowInfo.WindowGlowImage,
+                ScaleWithDPI = true,
                 ZIndex = math.max(0, MainFrame.ZIndex - 1),
             })
         end
@@ -13177,11 +13343,18 @@ function Library:CreateWindow(WindowInfo)
         function Tab:AddGroupbox(Info)
             Info = typeof(Info) == "table" and Info or { Name = tostring(Info or "Groupbox") }
             Info.Name = Info.Name or "Groupbox"
+            local OptimizeEnabled = WindowInfo.GroupboxOptimizeButton ~= false
+                and Info.OptimizeButton ~= false
+                and Info.Optimizing ~= false
+                and Info.Optimizable ~= false
+                and Info.Optimize ~= false
+            local StartCollapsed = Info.Collapsed == true or Info.Optimized == true
 
             local BoxHolder = New("Frame", {
                 AutomaticSize = Enum.AutomaticSize.Y,
                 BackgroundTransparency = 1,
                 Size = UDim2.fromScale(1, 0),
+                Visible = Info.Visible ~= false,
                 Parent = GetSideParent(Info.Side),
             })
             New("UIListLayout", {
@@ -13237,7 +13410,7 @@ function Library:CreateWindow(WindowInfo)
                 GroupboxLabel = New("TextLabel", {
                     BackgroundTransparency = 1,
                     Position = UDim2.fromOffset(BoxIcon and 24 or 0, 0),
-                    Size = UDim2.new(1, 0, 0, 34),
+                    Size = UDim2.new(1, OptimizeEnabled and -36 or 0, 0, 34),
                     Text = Info.Name,
                     TextSize = 15,
                     TextXAlignment = Enum.TextXAlignment.Left,
@@ -13275,19 +13448,48 @@ function Library:CreateWindow(WindowInfo)
                 Container = GroupboxContainer,
 
                 Tab = Tab,
+                WindowInfo = WindowInfo,
                 DependencyBoxes = {},
                 Tabboxes = {},
                 Elements = {},
+                Collapsed = StartCollapsed,
             }
 
             function Groupbox:Resize()
-                GroupboxHolder.Size = UDim2.new(1, 0, 0, (GroupboxList.AbsoluteContentSize.Y / Library.DPIScale) + 49)
+                if Groupbox.Collapsed then
+                    GroupboxHolder.Size = UDim2.new(1, 0, 0, 35)
+                else
+                    GroupboxHolder.Size =
+                        UDim2.new(1, 0, 0, (GroupboxList.AbsoluteContentSize.Y / Library.DPIScale) + 49)
+                end
                 Tab:RefreshSides()
+            end
+
+            function Groupbox:SetCollapsed(Collapsed: boolean)
+                Groupbox.Collapsed = Collapsed == true
+                GroupboxContainer.Visible = not Groupbox.Collapsed
+                if Groupbox.OptimizeButton then
+                    Groupbox.OptimizeButton:SetCollapsed(Groupbox.Collapsed)
+                end
+                Groupbox:Resize()
+            end
+
+            function Groupbox:ToggleCollapsed()
+                Groupbox:SetCollapsed(not Groupbox.Collapsed)
+            end
+
+            Groupbox.SetOptimized = Groupbox.SetCollapsed
+            Groupbox.ToggleOptimized = Groupbox.ToggleCollapsed
+
+            if OptimizeEnabled then
+                Groupbox.OptimizeButton = CreateOptimizeButton(GroupboxHolder, WindowInfo.CornerRadius, function()
+                    Groupbox:ToggleCollapsed()
+                end)
             end
 
             setmetatable(Groupbox, BaseGroupbox)
 
-            Groupbox:Resize()
+            Groupbox:SetCollapsed(StartCollapsed)
             Tab.Groupboxes[Info.Name] = Groupbox
 
             return Groupbox
@@ -13307,11 +13509,18 @@ function Library:CreateWindow(WindowInfo)
 
         function Tab:AddTabbox(Info)
             Info = typeof(Info) == "table" and Info or { Name = Info }
+            local OptimizeEnabled = WindowInfo.TabboxOptimizeButton ~= false
+                and Info.OptimizeButton ~= false
+                and Info.Optimizing ~= false
+                and Info.Optimizable ~= false
+                and Info.Optimize ~= false
+            local StartCollapsed = Info.Collapsed == true or Info.Optimized == true
 
             local BoxHolder = New("Frame", {
                 AutomaticSize = Enum.AutomaticSize.Y,
                 BackgroundTransparency = 1,
                 Size = UDim2.fromScale(1, 0),
+                Visible = Info.Visible ~= false,
                 Parent = GetSideParent(Info.Side),
             })
             New("UIListLayout", {
@@ -13331,6 +13540,7 @@ function Library:CreateWindow(WindowInfo)
                 TabboxHolder = New("Frame", {
                     BackgroundColor3 = "BackgroundColor",
                     Size = UDim2.fromScale(1, 0),
+                    Visible = Info.Visible ~= false,
                     Parent = BoxHolder,
                 })
                 RegisterBackgroundImageSurface(TabboxHolder, 0, "Panel")
@@ -13345,7 +13555,7 @@ function Library:CreateWindow(WindowInfo)
 
                 TabboxButtons = New("Frame", {
                     BackgroundTransparency = 1,
-                    Size = UDim2.new(1, 0, 0, 34),
+                    Size = UDim2.new(1, OptimizeEnabled and -31 or 0, 0, 34),
                     Parent = TabboxHolder,
                 })
                 New("UIListLayout", {
@@ -13363,7 +13573,61 @@ function Library:CreateWindow(WindowInfo)
                 Holder = TabboxHolder,
                 GroupTab = Tab,
                 Tabs = {},
+                Text = Info.Name,
+                Type = "Tabbox",
+                Visible = Info.Visible ~= false,
+                Collapsed = StartCollapsed,
             }
+
+            function Tabbox:Resize()
+                if Tabbox.Collapsed then
+                    if Tabbox.ActiveTab then
+                        Tabbox.ActiveTab.Container.Visible = false
+                    end
+                    TabboxHolder.Size = UDim2.new(1, 0, 0, 34)
+                    Tabbox.GroupTab:RefreshSides()
+                    return
+                end
+
+                if Tabbox.ActiveTab then
+                    Tabbox.ActiveTab.Container.Visible = true
+                    Tabbox.ActiveTab:Resize()
+                else
+                    TabboxHolder.Size = UDim2.new(1, 0, 0, 34)
+                    Tabbox.GroupTab:RefreshSides()
+                end
+            end
+
+            function Tabbox:SetVisible(Visible: boolean)
+                Tabbox.Visible = Visible
+                BoxHolder.Visible = Visible
+                TabboxHolder.Visible = Visible
+                Tabbox.GroupTab:RefreshSides()
+            end
+
+            function Tabbox:SetCollapsed(Collapsed: boolean)
+                Tabbox.Collapsed = Collapsed == true
+                if Tabbox.ActiveTab then
+                    Tabbox.ActiveTab.Container.Visible = not Tabbox.Collapsed
+                end
+                if Tabbox.OptimizeButton then
+                    Tabbox.OptimizeButton:SetCollapsed(Tabbox.Collapsed)
+                end
+                Tabbox:Resize()
+            end
+
+            function Tabbox:ToggleCollapsed()
+                Tabbox:SetCollapsed(not Tabbox.Collapsed)
+            end
+
+            Tabbox.SetOptimized = Tabbox.SetCollapsed
+            Tabbox.ToggleOptimized = Tabbox.ToggleCollapsed
+
+            if OptimizeEnabled then
+                Tabbox.OptimizeButton = CreateOptimizeButton(TabboxHolder, WindowInfo.CornerRadius, function()
+                    Tabbox:ToggleCollapsed()
+                end)
+            end
 
             function Tabbox:UpdateCorners()
                 for _, Tab in Tabbox.Tabs do
@@ -13500,6 +13764,7 @@ function Library:CreateWindow(WindowInfo)
                     },
 
                     Tab = Tab,
+                    WindowInfo = WindowInfo,
                     Elements = {},
                     DependencyBoxes = {},
                     Tabboxes = {},
@@ -13521,7 +13786,7 @@ function Library:CreateWindow(WindowInfo)
                     end
                     Line.Visible = false
 
-                    Container.Visible = true
+                    Container.Visible = not Tabbox.Collapsed
 
                     Tabbox.ActiveTab = Tab
                     Tab:Resize()
@@ -13545,6 +13810,13 @@ function Library:CreateWindow(WindowInfo)
 
                 function Tab:Resize()
                     if Tabbox.ActiveTab ~= Tab then
+                        return
+                    end
+
+                    if Tabbox.Collapsed then
+                        Container.Visible = false
+                        TabboxHolder.Size = UDim2.new(1, 0, 0, 34)
+                        Tabbox.GroupTab:RefreshSides()
                         return
                     end
 
@@ -13584,6 +13856,7 @@ function Library:CreateWindow(WindowInfo)
                 table.insert(Tab.Tabboxes, Tabbox)
             end
 
+            Tabbox:SetCollapsed(StartCollapsed)
             return Tabbox
         end
 
