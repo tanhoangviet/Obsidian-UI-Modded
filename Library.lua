@@ -655,7 +655,7 @@ local Templates = {
         WindowGlowOffset = Vector2.new(0, 0),
         WindowGlowImage = nil,
         GroupboxOptimizeButton = true,
-        TabboxOptimizeButton = true,
+        TabboxOptimizeButton = false,
         TabsMode = "Sidebar", -- Sidebar, Topbar
         TabStyle = "Default", -- Default, Card
         FullscreenBackground = false,
@@ -726,7 +726,12 @@ local Templates = {
         DynamicIslandUnlockedIcon = "https://api.iconify.design/solar:lock-keyhole-minimalistic-unlocked-bold.svg?color=%23ffffff",
         DynamicIslandIdlePosition = UDim2.new(0.5, 0, 0, 2),
         DynamicIslandIdleDelay = 2.35,
-        DynamicIslandHoldDuration = 0.45,
+        DynamicIslandHoldDuration = 5,
+        DynamicIslandActionMenu = true,
+        DynamicIslandActionHoldDuration = 5,
+        DynamicIslandActionAutoCloseDelay = 8,
+        DynamicIslandActionSize = nil,
+        DynamicIslandActionOffset = nil,
         DynamicIslandDraggable = false,
         DynamicIslandShowMobileLockButton = false,
         KeybindMenuWidth = 300,
@@ -9533,12 +9538,18 @@ do
         local Groupbox = self
         local Container = Groupbox.Container
         local BoxWindowInfo = Groupbox.WindowInfo or {}
-        local OptimizeEnabled = BoxWindowInfo.TabboxOptimizeButton ~= false
-            and Info.OptimizeButton ~= false
+        local StartCollapsed = Info.Collapsed == true or Info.Optimized == true
+        local OptimizeAllowed = Info.OptimizeButton ~= false
             and Info.Optimizing ~= false
             and Info.Optimizable ~= false
             and Info.Optimize ~= false
-        local StartCollapsed = Info.Collapsed == true or Info.Optimized == true
+        local OptimizeRequested = BoxWindowInfo.TabboxOptimizeButton == true
+            or Info.OptimizeButton == true
+            or Info.Optimizing == true
+            or Info.Optimizable == true
+            or Info.Optimize == true
+            or StartCollapsed
+        local OptimizeEnabled = OptimizeAllowed and OptimizeRequested
         local CornerRadius = math.max(3, math.floor(Library.CornerRadius * 0.65))
         local ButtonCornerRadius = 0
 
@@ -11531,8 +11542,28 @@ function Library:CreateWindow(WindowInfo)
         local LockIconWidth = math.max(12, LockIconSize.X.Offset ~= 0 and LockIconSize.X.Offset or 15)
         local TextLeft = 11 + AssetWidth + 7
         local IdleDelay = math.max(0.35, tonumber(WindowInfo.DynamicIslandIdleDelay) or 2.35)
-        local HoldDuration = math.max(0.2, tonumber(WindowInfo.DynamicIslandHoldDuration) or 0.45)
+        local ActionMenuEnabled = WindowInfo.DynamicIslandActionMenu ~= false
+        local HoldDuration = math.max(
+            0.2,
+            tonumber(WindowInfo.DynamicIslandActionHoldDuration or WindowInfo.DynamicIslandHoldDuration) or 5
+        )
+        local ActionAutoCloseDelay = math.max(2, tonumber(WindowInfo.DynamicIslandActionAutoCloseDelay) or 8)
         local IdleEnabled = WindowInfo.DynamicIslandIdle ~= false and WindowInfo.DynamicIslandIdleEnabled ~= false
+        local ActionOffset = if typeof(WindowInfo.DynamicIslandActionOffset) == "Vector2"
+            then WindowInfo.DynamicIslandActionOffset
+            else Vector2.new(0, math.max(8, math.floor(TopbarHeight * 0.62)))
+        local ActionSize = if typeof(WindowInfo.DynamicIslandActionSize) == "UDim2"
+            then WindowInfo.DynamicIslandActionSize
+            else UDim2.fromOffset(
+                math.max(232, math.floor(ExpandedSize.X.Offset + (Library.IsMobile and 112 or 128))),
+                math.max(66, math.floor(TopbarHeight * 2.2))
+            )
+        local ActionPosition = UDim2.new(
+            ActivePosition.X.Scale,
+            ActivePosition.X.Offset + ActionOffset.X,
+            ActivePosition.Y.Scale,
+            ActivePosition.Y.Offset + ActionOffset.Y
+        )
         local function ResolveIslandCornerRadius(Value, Default: UDim): UDim
             if typeof(Value) == "UDim" then
                 return Value
@@ -11733,6 +11764,33 @@ function Library:CreateWindow(WindowInfo)
             Parent = Island,
         })
 
+        local NormalAssetPosition = AssetHolder.Position
+        local NormalTextPosition = TextHolder.Position
+        local NormalTextSize = TextHolder.Size
+        local NormalStatusPosition = StatusDot.Position
+        local ActionTopCenterY = math.floor(TopbarHeight * 0.5)
+        local ActionAssetPosition = UDim2.new(0, 10, 0, ActionTopCenterY)
+        local ActionTextPosition = UDim2.new(0, TextLeft, 0, 4)
+        local ActionTextSize = UDim2.new(1, -(TextLeft + LockIconWidth + 13), 0, math.max(12, TopbarHeight - 8))
+        local ActionStatusPosition = UDim2.new(1, -11, 0, ActionTopCenterY)
+        local ActionContainer = New("Frame", {
+            BackgroundTransparency = 1,
+            Position = UDim2.new(0, 7, 0, TopbarHeight + 6),
+            Size = UDim2.new(1, -14, 1, -(TopbarHeight + 12)),
+            Visible = false,
+            ZIndex = Island.ZIndex + 4,
+            Parent = Island,
+        })
+        New("UIListLayout", {
+            FillDirection = Enum.FillDirection.Horizontal,
+            HorizontalFlex = Enum.UIFlexAlignment.Fill,
+            Padding = UDim.new(0, 5),
+            SortOrder = Enum.SortOrder.LayoutOrder,
+            VerticalAlignment = Enum.VerticalAlignment.Center,
+            Parent = ActionContainer,
+        })
+        local ActionButtonRecords = {}
+
         local Controller = {
             Holder = Island,
             AssetImage = AssetImage,
@@ -11745,6 +11803,8 @@ function Library:CreateWindow(WindowInfo)
         local IsIdle = false
         local IsPressing = false
         local LongPressTriggered = false
+        local ActionMenuOpen = false
+        local ActionMenuToken = 0
         local ContentVisibilityToken = 0
         local LockedIcon = ResolveDynamicIslandAsset(WindowInfo.DynamicIslandLockedIcon or DynamicIslandLockedIconUrl)
         local UnlockedIcon =
@@ -11767,6 +11827,222 @@ function Library:CreateWindow(WindowInfo)
             StatusDot.ImageTransparency = IsIdle and 0.34 or (Locked and 0.04 or 0.18)
         end
 
+        local SetActionMenuOpen
+        local function ResolveActionIcon(Icon)
+            if not Icon then
+                return nil
+            end
+
+            if typeof(Icon) == "table" and Icon.Url then
+                return Icon
+            end
+
+            local IconType = typeof(Icon)
+            if
+                IconType == "number"
+                or (IconType == "string" and (tonumber(Icon) or IsHttpUrl(Icon) or Icon:find("^rbxasset")))
+            then
+                return ResolveDynamicIslandAsset(Icon)
+            end
+
+            if IconType == "string" then
+                return Library:GetCustomIcon(Icon)
+            end
+
+            return nil
+        end
+
+        local function SetActionButtonTransparency(Record, Transparency: number, Instant: boolean?)
+            local ButtonTransparency = math.clamp(Transparency + 0.22, 0, 1)
+            local OutlineTransparency = math.clamp(Transparency + 0.36, 0, 1)
+            if Instant then
+                Record.Button.BackgroundTransparency = ButtonTransparency
+                Record.Label.TextTransparency = Transparency
+                if Record.Icon then
+                    Record.Icon.ImageTransparency = Transparency
+                end
+                if Record.Outline then
+                    Record.Outline.Transparency = OutlineTransparency
+                end
+                return
+            end
+
+            local FadeInfo = TweenInfo.new(0.18, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+            TweenService:Create(Record.Button, FadeInfo, {
+                BackgroundTransparency = ButtonTransparency,
+            }):Play()
+            TweenService:Create(Record.Label, FadeInfo, {
+                TextTransparency = Transparency,
+            }):Play()
+            if Record.Icon then
+                TweenService:Create(Record.Icon, FadeInfo, {
+                    ImageTransparency = Transparency,
+                }):Play()
+            end
+            if Record.Outline then
+                TweenService:Create(Record.Outline, FadeInfo, {
+                    Transparency = OutlineTransparency,
+                }):Play()
+            end
+        end
+
+        local function SetAllActionButtonsTransparency(Transparency: number, Instant: boolean?)
+            for _, Record in ActionButtonRecords do
+                SetActionButtonTransparency(Record, Transparency, Instant)
+            end
+        end
+
+        local function CreateActionButton(Name: string, Text: string, Icon, Callback, Order: number)
+            local Button = New("TextButton", {
+                AutoButtonColor = false,
+                BackgroundColor3 = "MainColor",
+                BackgroundTransparency = 1,
+                LayoutOrder = Order,
+                Size = UDim2.new(0, 0, 1, 0),
+                Text = "",
+                ZIndex = ActionContainer.ZIndex + 1,
+                Parent = ActionContainer,
+            })
+            table.insert(
+                Library.Corners,
+                New("UICorner", {
+                    CornerRadius = UDim.new(0, math.max(6, math.floor(TopbarHeight * 0.22))),
+                    Parent = Button,
+                })
+            )
+            local OutlineStroke = Library:AddOutline(Button, {
+                Color = "AccentColor",
+                Transparency = 1,
+                ShadowTransparency = 1,
+            })
+
+            local ParsedIcon = ResolveActionIcon(Icon)
+            local IconLabel
+            local LabelX = 0
+            if ParsedIcon then
+                LabelX = 20
+                IconLabel = New("ImageLabel", {
+                    AnchorPoint = Vector2.new(0, 0.5),
+                    BackgroundTransparency = 1,
+                    Image = ParsedIcon.Url,
+                    ImageColor3 = ParsedIcon.Custom and "WhiteColor" or "AccentColor",
+                    ImageRectOffset = ParsedIcon.ImageRectOffset,
+                    ImageRectSize = ParsedIcon.ImageRectSize,
+                    ImageTransparency = 1,
+                    Position = UDim2.new(0, 7, 0.5, 0),
+                    Size = UDim2.fromOffset(13, 13),
+                    ZIndex = Button.ZIndex + 1,
+                    Parent = Button,
+                })
+            end
+
+            local Label = New("TextLabel", {
+                BackgroundTransparency = 1,
+                FontFace = IslandFont,
+                Position = UDim2.fromOffset(LabelX, 0),
+                Size = UDim2.new(1, -LabelX, 1, 0),
+                Text = Text,
+                TextColor3 = "FontColor",
+                TextSize = math.clamp(TopbarHeight * 0.28, 9, 11),
+                TextTransparency = 1,
+                TextTruncate = Enum.TextTruncate.AtEnd,
+                ZIndex = Button.ZIndex + 1,
+                Parent = Button,
+            })
+            New("UIPadding", {
+                PaddingLeft = UDim.new(0, ParsedIcon and 4 or 7),
+                PaddingRight = UDim.new(0, 7),
+                Parent = Label,
+            })
+
+            local Record = {
+                Button = Button,
+                Icon = IconLabel,
+                Label = Label,
+                Outline = OutlineStroke,
+                SetText = function(_, NewText)
+                    Label.Text = tostring(NewText or "")
+                end,
+                SetIcon = function(_, NewIcon)
+                    local NewParsedIcon = ResolveActionIcon(NewIcon)
+                    if not IconLabel or not NewParsedIcon then
+                        return
+                    end
+
+                    IconLabel.Image = NewParsedIcon.Url
+                    IconLabel.ImageColor3 = NewParsedIcon.Custom and Library.Scheme.WhiteColor
+                        or Library.Scheme.AccentColor
+                    IconLabel.ImageRectOffset = NewParsedIcon.ImageRectOffset
+                    IconLabel.ImageRectSize = NewParsedIcon.ImageRectSize
+                end,
+            }
+            table.insert(ActionButtonRecords, Record)
+
+            Button.MouseEnter:Connect(function()
+                TweenService:Create(Button, TweenInfo.new(0.14, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
+                    BackgroundTransparency = 0.12,
+                }):Play()
+            end)
+            Button.MouseLeave:Connect(function()
+                TweenService:Create(Button, TweenInfo.new(0.16, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
+                    BackgroundTransparency = ActionMenuOpen and 0.22 or 1,
+                }):Play()
+            end)
+            Button.MouseButton1Click:Connect(function()
+                if not ActionMenuOpen then
+                    return
+                end
+
+                ActionMenuToken += 1
+                Library:SafeCallback(Callback, Controller, Record)
+            end)
+
+            return Record
+        end
+
+        local DestroyAction = CreateActionButton(
+            "Destroy",
+            WindowInfo.DynamicIslandDestroyText or "Destroy UI",
+            WindowInfo.DynamicIslandDestroyIcon or "trash-2",
+            function()
+                Library:Unload()
+            end,
+            1
+        )
+        local LockAction = CreateActionButton(
+            "Lock",
+            "Lock",
+            WindowInfo.DynamicIslandLockedIcon or LockedIcon,
+            function()
+                Library.CantDragForced = not Library.CantDragForced
+                Controller:SetLocked(Library.CantDragForced)
+                if SetActionMenuOpen then
+                    SetActionMenuOpen(false)
+                end
+                Controller:ScheduleIdle()
+            end,
+            2
+        )
+        local ToggleAction = CreateActionButton("Toggle", "Hide", "eye-off", function()
+            Library:Toggle()
+            if SetActionMenuOpen then
+                SetActionMenuOpen(false)
+            end
+            Controller:ScheduleIdle()
+        end, 3)
+
+        local function RefreshActionButtons()
+            LockAction:SetText(Library.CantDragForced and "Unlock" or "Lock")
+            LockAction:SetIcon(
+                Library.CantDragForced and (WindowInfo.DynamicIslandUnlockedIcon or UnlockedIcon)
+                    or (WindowInfo.DynamicIslandLockedIcon or LockedIcon)
+            )
+            ToggleAction:SetText(Library.Toggled and "Hide" or "Show")
+            ToggleAction:SetIcon(Library.Toggled and "eye-off" or "eye")
+        end
+
+        SetAllActionButtonsTransparency(1, true)
+
         local function SetIslandContentVisible(Visible: boolean)
             if not HideContentWhenIdle then
                 Visible = true
@@ -11778,6 +12054,10 @@ function Library:CreateWindow(WindowInfo)
         end
 
         local function SetIslandIdleState(Idle, Instant)
+            if ActionMenuOpen then
+                return
+            end
+
             IsIdle = Idle == true
             ContentVisibilityToken += 1
             local CurrentContentVisibilityToken = ContentVisibilityToken
@@ -11916,6 +12196,160 @@ function Library:CreateWindow(WindowInfo)
             end
         end
 
+        SetActionMenuOpen = function(Open: boolean, Instant: boolean?)
+            if not ActionMenuEnabled then
+                return
+            end
+
+            Open = Open == true
+            if ActionMenuOpen == Open and not Instant then
+                return
+            end
+
+            ActionMenuOpen = Open
+            ActionMenuToken += 1
+            local CurrentActionMenuToken = ActionMenuToken
+            ContentVisibilityToken += 1
+
+            if Open then
+                IsIdle = false
+                StatusLabel.Text = WindowInfo.DynamicIslandActionsText or "Quick actions"
+                RefreshActionButtons()
+                SetIslandContentVisible(true)
+                ActionContainer.Visible = true
+            else
+                StatusLabel.Text = Library.CantDragForced and (WindowInfo.DynamicIslandLockedText or "Locked")
+                    or (
+                        Library.Toggled and (WindowInfo.DynamicIslandOpenText or "Menu open")
+                        or (WindowInfo.DynamicIslandClosedText or WindowInfo.DynamicIslandSubtitle or "Menu closed")
+                    )
+                SetIslandContentVisible(true)
+            end
+
+            local TargetSize = Open and ActionSize or (Library.Toggled and ExpandedSize or CollapsedSize)
+            local TargetPosition = Open and ActionPosition or ActivePosition
+            local TargetGlowTransparency = if DynamicIslandGlowEnabled
+                then (Open and 0.62 or (Library.Toggled and 0.72 or 0.82))
+                else 1
+            local TargetImageGlowTransparency = if DynamicIslandGlowEnabled
+                then (Open and math.max(0, DynamicIslandGlowTransparency - 0.08) or DynamicIslandGlowTransparency)
+                else 1
+            local TargetShadowTransparency = Open and DynamicIslandShadowTransparency or DynamicIslandShadowTransparency
+            local TargetGlassTransparency = Open and math.max(0, GlassTransparency - 0.05) or GlassTransparency
+            local TargetShineTransparency = Open and 0.78 or 0.86
+            local TweenTime = Instant and 0 or (Open and 0.34 or 0.24)
+            local TweenStyle = Open and Enum.EasingStyle.Back or Enum.EasingStyle.Quint
+            local TweenDirection = Open and Enum.EasingDirection.Out or Enum.EasingDirection.Out
+            local TweenSpec = TweenInfo.new(TweenTime, TweenStyle, TweenDirection)
+
+            local function ApplyInstant()
+                Island.Size = TargetSize
+                Island.Position = TargetPosition
+                Island.BackgroundTransparency = BaseTransparency
+                OutlineStroke.Transparency = Open and 0.01 or (Library.Toggled and 0.01 or 0.04)
+                OuterGlowStroke.Transparency = TargetGlowTransparency
+                if IslandImageGlow then
+                    IslandImageGlow.ImageTransparency = TargetImageGlowTransparency
+                end
+                if IslandShadow then
+                    IslandShadow.ImageTransparency = TargetShadowTransparency
+                end
+                GlassLayer.BackgroundTransparency = TargetGlassTransparency
+                ShineLayer.BackgroundTransparency = TargetShineTransparency
+                IslandCorner.CornerRadius = ActiveCornerRadius
+                GlassCorner.CornerRadius = ActiveCornerRadius
+                ShineCorner.CornerRadius = ActiveCornerRadius
+                AssetHolder.Position = Open and ActionAssetPosition or NormalAssetPosition
+                TextHolder.Position = Open and ActionTextPosition or NormalTextPosition
+                TextHolder.Size = Open and ActionTextSize or NormalTextSize
+                StatusDot.Position = Open and ActionStatusPosition or NormalStatusPosition
+                TitleLabel.TextTransparency = 0
+                StatusLabel.TextTransparency = Open and 0.25 or 0.45
+                AssetImage.ImageTransparency = 0
+                StatusDot.ImageTransparency = Library.CantDragForced and 0.04 or 0.18
+                SetAllActionButtonsTransparency(Open and 0 or 1, true)
+                ActionContainer.Visible = Open
+            end
+
+            if Instant then
+                ApplyInstant()
+            else
+                TweenService:Create(Island, TweenSpec, {
+                    BackgroundTransparency = BaseTransparency,
+                    Position = TargetPosition,
+                    Size = TargetSize,
+                }):Play()
+                TweenService:Create(OutlineStroke, TweenInfo.new(TweenTime, Enum.EasingStyle.Sine), {
+                    Transparency = Open and 0.01 or (Library.Toggled and 0.01 or 0.04),
+                }):Play()
+                TweenService:Create(OuterGlowStroke, TweenInfo.new(TweenTime, Enum.EasingStyle.Sine), {
+                    Transparency = TargetGlowTransparency,
+                }):Play()
+                if IslandImageGlow then
+                    TweenService:Create(IslandImageGlow, TweenInfo.new(TweenTime, Enum.EasingStyle.Sine), {
+                        ImageTransparency = TargetImageGlowTransparency,
+                    }):Play()
+                end
+                if IslandShadow then
+                    TweenService:Create(IslandShadow, TweenInfo.new(TweenTime, Enum.EasingStyle.Sine), {
+                        ImageTransparency = TargetShadowTransparency,
+                    }):Play()
+                end
+                TweenService:Create(GlassLayer, TweenInfo.new(TweenTime, Enum.EasingStyle.Sine), {
+                    BackgroundTransparency = TargetGlassTransparency,
+                }):Play()
+                TweenService:Create(ShineLayer, TweenInfo.new(TweenTime, Enum.EasingStyle.Sine), {
+                    BackgroundTransparency = TargetShineTransparency,
+                }):Play()
+                TweenService:Create(IslandCorner, TweenInfo.new(TweenTime, Enum.EasingStyle.Sine), {
+                    CornerRadius = ActiveCornerRadius,
+                }):Play()
+                TweenService:Create(GlassCorner, TweenInfo.new(TweenTime, Enum.EasingStyle.Sine), {
+                    CornerRadius = ActiveCornerRadius,
+                }):Play()
+                TweenService:Create(ShineCorner, TweenInfo.new(TweenTime, Enum.EasingStyle.Sine), {
+                    CornerRadius = ActiveCornerRadius,
+                }):Play()
+                TweenService:Create(AssetHolder, TweenInfo.new(TweenTime, Enum.EasingStyle.Quint), {
+                    Position = Open and ActionAssetPosition or NormalAssetPosition,
+                }):Play()
+                TweenService:Create(TextHolder, TweenInfo.new(TweenTime, Enum.EasingStyle.Quint), {
+                    Position = Open and ActionTextPosition or NormalTextPosition,
+                    Size = Open and ActionTextSize or NormalTextSize,
+                }):Play()
+                TweenService:Create(StatusDot, TweenInfo.new(TweenTime, Enum.EasingStyle.Quint), {
+                    Position = Open and ActionStatusPosition or NormalStatusPosition,
+                    ImageTransparency = Library.CantDragForced and 0.04 or 0.18,
+                }):Play()
+                TweenService:Create(StatusLabel, TweenInfo.new(TweenTime, Enum.EasingStyle.Sine), {
+                    TextTransparency = Open and 0.25 or 0.45,
+                }):Play()
+                TweenService:Create(AssetImage, TweenInfo.new(TweenTime, Enum.EasingStyle.Sine), {
+                    ImageTransparency = 0,
+                }):Play()
+                SetAllActionButtonsTransparency(Open and 0 or 1, Instant)
+            end
+
+            if Open then
+                task.delay(ActionAutoCloseDelay, function()
+                    if CurrentActionMenuToken ~= ActionMenuToken or not ActionMenuOpen or not Island.Parent then
+                        return
+                    end
+
+                    SetActionMenuOpen(false)
+                    Controller:ScheduleIdle()
+                end)
+            elseif Instant then
+                ActionContainer.Visible = false
+            else
+                task.delay(TweenTime + 0.04, function()
+                    if CurrentActionMenuToken == ActionMenuToken and not ActionMenuOpen then
+                        ActionContainer.Visible = false
+                    end
+                end)
+            end
+        end
+
         local GradientAnimationToken = 0
         local ActiveGradientTweens = {}
         local function StopDynamicIslandGradientAnimation()
@@ -12000,7 +12434,7 @@ function Library:CreateWindow(WindowInfo)
             IdleToken += 1
             local CurrentToken = IdleToken
             task.delay(IdleDelay, function()
-                if CurrentToken ~= IdleToken or IsPressing or not Island.Visible then
+                if CurrentToken ~= IdleToken or IsPressing or ActionMenuOpen or not Island.Visible then
                     return
                 end
 
@@ -12015,6 +12449,7 @@ function Library:CreateWindow(WindowInfo)
             StatusLabel.TextTransparency = 0.2
             SetLockVisual(Locked)
             StatusDot.ImageTransparency = 0.04
+            RefreshActionButtons()
             Controller:Wake()
             Controller:ScheduleIdle()
         end
@@ -12043,6 +12478,9 @@ function Library:CreateWindow(WindowInfo)
 
         function Controller:SetVisible(Visible)
             Island.Visible = Visible == true
+            if not Island.Visible and ActionMenuOpen and SetActionMenuOpen then
+                SetActionMenuOpen(false, true)
+            end
         end
 
         function Controller:SetActive(Active)
@@ -12056,11 +12494,17 @@ function Library:CreateWindow(WindowInfo)
             StatusLabel.Text = StatusText
             SetLockVisual(Library.CantDragForced)
             StatusDot.ImageTransparency = Library.CantDragForced and 0.04 or (Active and 0.1 or 0.18)
+            RefreshActionButtons()
             IslandGradient.Color = ColorSequence.new({
                 ColorSequenceKeypoint.new(0, Active and Library.Scheme.WhiteColor or Library.Scheme.AccentColor),
                 ColorSequenceKeypoint.new(0.48, Library:GetBetterColor(Library.Scheme.MainColor, Active and 24 or 12)),
                 ColorSequenceKeypoint.new(1, Library.Scheme.AccentColor),
             })
+            if ActionMenuOpen and SetActionMenuOpen then
+                SetActionMenuOpen(false)
+                Controller:ScheduleIdle()
+                return
+            end
             SetIslandIdleState(false)
             Controller:ScheduleIdle()
         end
@@ -12079,6 +12523,10 @@ function Library:CreateWindow(WindowInfo)
             }):Play()
         end)
         Island.MouseLeave:Connect(function()
+            if ActionMenuOpen then
+                return
+            end
+
             Controller:ScheduleIdle()
             TweenService:Create(Island, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 BackgroundTransparency = IsIdle and IdleTransparency or BaseTransparency,
@@ -12094,6 +12542,10 @@ function Library:CreateWindow(WindowInfo)
                 return
             end
 
+            if ActionMenuOpen then
+                return
+            end
+
             Controller:Wake()
             IsPressing = true
             LongPressTriggered = false
@@ -12106,8 +12558,12 @@ function Library:CreateWindow(WindowInfo)
                 end
 
                 LongPressTriggered = true
-                Library.CantDragForced = not Library.CantDragForced
-                Controller:SetLocked(Library.CantDragForced)
+                if ActionMenuEnabled and SetActionMenuOpen then
+                    SetActionMenuOpen(true)
+                else
+                    Library.CantDragForced = not Library.CantDragForced
+                    Controller:SetLocked(Library.CantDragForced)
+                end
             end)
         end)
         Island.InputEnded:Connect(function(Input: InputObject)
@@ -12115,14 +12571,14 @@ function Library:CreateWindow(WindowInfo)
                 return
             end
 
-            local ShouldToggle = IsPressing and not LongPressTriggered
+            local ShouldToggle = IsPressing and not LongPressTriggered and not ActionMenuOpen
             IsPressing = false
             LongPressTriggered = false
             PressToken += 1
 
             if ShouldToggle then
                 Library:Toggle()
-            else
+            elseif not ActionMenuOpen then
                 Controller:ScheduleIdle()
             end
         end)
@@ -13509,12 +13965,18 @@ function Library:CreateWindow(WindowInfo)
 
         function Tab:AddTabbox(Info)
             Info = typeof(Info) == "table" and Info or { Name = Info }
-            local OptimizeEnabled = WindowInfo.TabboxOptimizeButton ~= false
-                and Info.OptimizeButton ~= false
+            local StartCollapsed = Info.Collapsed == true or Info.Optimized == true
+            local OptimizeAllowed = Info.OptimizeButton ~= false
                 and Info.Optimizing ~= false
                 and Info.Optimizable ~= false
                 and Info.Optimize ~= false
-            local StartCollapsed = Info.Collapsed == true or Info.Optimized == true
+            local OptimizeRequested = WindowInfo.TabboxOptimizeButton == true
+                or Info.OptimizeButton == true
+                or Info.Optimizing == true
+                or Info.Optimizable == true
+                or Info.Optimize == true
+                or StartCollapsed
+            local OptimizeEnabled = OptimizeAllowed and OptimizeRequested
 
             local BoxHolder = New("Frame", {
                 AutomaticSize = Enum.AutomaticSize.Y,
