@@ -11868,12 +11868,13 @@ function Library:CreateWindow(WindowInfo)
             Parent = ActionContainer,
         })
         local ActionButtonRecords = {}
+        local PanelGrabBarPosition = UDim2.new(0.5, 0, 1.05, 0)
         local PanelGrabBar = New("TextButton", {
             AnchorPoint = Vector2.new(0.5, 1),
             AutoButtonColor = false,
             BackgroundColor3 = "WhiteColor",
             BackgroundTransparency = 1,
-            Position = UDim2.new(0.5, 0, 1, -5),
+            Position = PanelGrabBarPosition,
             Size = UDim2.fromOffset(54, 4),
             Text = "",
             Visible = false,
@@ -12749,6 +12750,7 @@ function Library:CreateWindow(WindowInfo)
             PanelBarStartPosition = nil
             TweenService:Create(PanelGrabBar, TweenInfo.new(0.14, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
                 BackgroundTransparency = ActionMenuOpen and 0.42 or 1,
+                Position = PanelGrabBarPosition,
                 Size = UDim2.fromOffset(54, 4),
             }):Play()
         end
