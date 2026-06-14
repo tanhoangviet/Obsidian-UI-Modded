@@ -726,12 +726,14 @@ local Templates = {
         DynamicIslandUnlockedIcon = "https://api.iconify.design/solar:lock-keyhole-minimalistic-unlocked-bold.svg?color=%23ffffff",
         DynamicIslandIdlePosition = UDim2.new(0.5, 0, 0, 2),
         DynamicIslandIdleDelay = 2.35,
-        DynamicIslandHoldDuration = 5,
         DynamicIslandActionMenu = true,
-        DynamicIslandActionHoldDuration = 5,
         DynamicIslandActionAutoCloseDelay = 8,
         DynamicIslandActionSize = nil,
         DynamicIslandActionOffset = nil,
+        DynamicIslandPanelCornerRadius = 10,
+        DynamicIslandDragOpenThreshold = 46,
+        DynamicIslandDragLockThreshold = 64,
+        DynamicIslandPanelCloseThreshold = 28,
         DynamicIslandDraggable = false,
         DynamicIslandShowMobileLockButton = false,
         KeybindMenuWidth = 300,
@@ -10201,6 +10203,8 @@ local function NormalizeNotificationData(...)
         Data.Type = Info.Type
         Data.Variant = Info.Variant
         Data.Progress = Info.Progress
+        Data.Width = Info.Width
+        Data.BackgroundTransparency = Info.BackgroundTransparency
         Data.Actions = Info.Actions
         Data.CloseButton = Info.CloseButton
         Data.Dismissible = Info.Dismissible
@@ -10231,71 +10235,219 @@ function Library:Notify(...)
         end)
     end
 
+    local NotifyOnLeft = Library.NotifySide:lower() == "left"
+    local AccentColor = Data.AccentColor or Data.IconColor or "AccentColor"
+    local BaseCardTransparency = math.clamp(tonumber(Data.BackgroundTransparency) or 0.04, 0, 1)
+    local TargetWidth = tonumber(Data.Width) or (Library.IsMobile and 286 or 322)
+
     local FakeBackground = New("Frame", {
         AutomaticSize = Enum.AutomaticSize.Y,
         BackgroundTransparency = 1,
-        Size = UDim2.fromScale(1, 0),
+        Size = UDim2.fromOffset(TargetWidth, 0),
         Visible = false,
         Parent = NotificationArea,
     })
 
     local Holder = New("Frame", {
         AutomaticSize = Enum.AutomaticSize.Y,
-        BackgroundColor3 = "MainColor",
-        Position = Library.NotifySide:lower() == "left" and UDim2.new(-1, -8, 0, -2) or UDim2.new(1, 8, 0, -2),
-        Size = UDim2.fromScale(1, 1),
-        ZIndex = 5,
+        BackgroundColor3 = "BackgroundColor",
+        BackgroundTransparency = 1,
+        ClipsDescendants = true,
+        Position = NotifyOnLeft and UDim2.new(-1, -10, 0, 0) or UDim2.new(1, 10, 0, 0),
+        Size = UDim2.new(1, 0, 0, 0),
+        ZIndex = 20,
         Parent = FakeBackground,
+    })
+    local HolderScale = New("UIScale", {
+        Scale = 0.96,
+        Parent = Holder,
     })
     table.insert(
         Library.Corners,
         New("UICorner", {
-            CornerRadius = UDim.new(0, Library.CornerRadius),
+            CornerRadius = UDim.new(0, math.max(8, Library.CornerRadius + 4)),
             Parent = Holder,
         })
     )
-    New("UIListLayout", {
-        Padding = UDim.new(0, 4),
+    local HolderOutline = Library:AddOutline(Holder, {
+        Color = AccentColor,
+        Transparency = 0.42,
+        ShadowTransparency = 0.76,
+        ShadowThickness = 2,
+    })
+    Library:AddGradient(Holder, {
+        Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Library.Scheme.BackgroundColor),
+            ColorSequenceKeypoint.new(0.58, Library:GetBetterColor(Library.Scheme.MainColor, 5)),
+            ColorSequenceKeypoint.new(1, Library.Scheme.MainColor),
+        }),
+        Rotation = 14,
+        Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0.02),
+            NumberSequenceKeypoint.new(0.72, 0.12),
+            NumberSequenceKeypoint.new(1, 0.04),
+        }),
+    })
+
+    local AccentRail = New("Frame", {
+        BackgroundColor3 = AccentColor,
+        BorderSizePixel = 0,
+        Size = UDim2.new(0, 3, 1, 0),
+        ZIndex = Holder.ZIndex + 2,
         Parent = Holder,
+    })
+    table.insert(
+        Library.Corners,
+        New("UICorner", {
+            CornerRadius = UDim.new(1, 0),
+            Parent = AccentRail,
+        })
+    )
+
+    local Content = New("Frame", {
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 0),
+        ZIndex = Holder.ZIndex + 1,
+        Parent = Holder,
+    })
+    New("UIListLayout", {
+        Padding = UDim.new(0, 7),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Parent = Content,
     })
     New("UIPadding", {
-        PaddingBottom = UDim.new(0, 8),
-        PaddingLeft = UDim.new(0, 8),
-        PaddingRight = UDim.new(0, 8),
+        PaddingBottom = UDim.new(0, 10),
+        PaddingLeft = UDim.new(0, 12),
+        PaddingRight = UDim.new(0, 10),
         PaddingTop = UDim.new(0, 8),
-        Parent = Holder,
+        Parent = Content,
     })
-    Library:AddOutline(Holder)
 
-    local ContentContainer = New("Frame", {
+    local Header = New("Frame", {
         BackgroundTransparency = 1,
-        AutomaticSize = Enum.AutomaticSize.XY,
-        Size = UDim2.fromScale(1, 0),
-        Parent = Holder,
+        LayoutOrder = 1,
+        Size = UDim2.new(1, 0, 0, 32),
+        ZIndex = Content.ZIndex + 1,
+        Parent = Content,
     })
+
+    local IconTile
+    local IconLabel
+    local IconName = Data.BigIcon or Data.Icon
+    local ParsedIcon = IconName and Library:GetCustomIcon(IconName)
+    if ParsedIcon then
+        IconTile = New("Frame", {
+            BackgroundColor3 = AccentColor,
+            BackgroundTransparency = 0.82,
+            Position = UDim2.fromOffset(0, 1),
+            Size = UDim2.fromOffset(30, 30),
+            ZIndex = Header.ZIndex + 1,
+            Parent = Header,
+        })
+        table.insert(
+            Library.Corners,
+            New("UICorner", {
+                CornerRadius = UDim.new(0, 8),
+                Parent = IconTile,
+            })
+        )
+        Library:AddOutline(IconTile, {
+            Color = AccentColor,
+            Transparency = 0.56,
+            ShadowTransparency = 1,
+        })
+
+        IconLabel = New("ImageLabel", {
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            BackgroundTransparency = 1,
+            Image = ParsedIcon.Url,
+            ImageColor3 = ParsedIcon.Custom and "WhiteColor" or (Data.IconColor or AccentColor),
+            ImageRectOffset = ParsedIcon.ImageRectOffset,
+            ImageRectSize = ParsedIcon.ImageRectSize,
+            Position = UDim2.fromScale(0.5, 0.5),
+            Size = UDim2.fromOffset(17, 17),
+            ZIndex = IconTile.ZIndex + 1,
+            Parent = IconTile,
+        })
+    end
 
     local CloseButton
+    local CloseWidth = if Data.CloseButton ~= false and Data.Dismissible ~= false then 28 else 0
+    local TextLeftOffset = IconTile and 40 or 0
+    local HeaderText = New("Frame", {
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(TextLeftOffset, 0),
+        Size = UDim2.new(1, -(TextLeftOffset + CloseWidth), 1, 0),
+        ZIndex = Header.ZIndex + 1,
+        Parent = Header,
+    })
+    New("UIListLayout", {
+        Padding = UDim.new(0, 1),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        VerticalAlignment = Enum.VerticalAlignment.Center,
+        Parent = HeaderText,
+    })
+
+    local Title = New("TextLabel", {
+        BackgroundTransparency = 1,
+        LayoutOrder = 1,
+        Size = UDim2.new(1, 0, 0, 17),
+        Text = Data.Title,
+        TextSize = 15,
+        TextTruncate = Enum.TextTruncate.AtEnd,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = HeaderText.ZIndex + 1,
+        Parent = HeaderText,
+    })
+    local VariantLabel = New("TextLabel", {
+        BackgroundTransparency = 1,
+        LayoutOrder = 2,
+        Size = UDim2.new(1, 0, 0, 12),
+        Text = Data.Type or "Notification",
+        TextColor3 = AccentColor,
+        TextSize = 11,
+        TextTransparency = 0.18,
+        TextTruncate = Enum.TextTruncate.AtEnd,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = HeaderText.ZIndex + 1,
+        Parent = HeaderText,
+    })
+
     if Data.CloseButton ~= false and Data.Dismissible ~= false then
         CloseButton = New("TextButton", {
             AnchorPoint = Vector2.new(1, 0),
-            BackgroundTransparency = 1,
-            Position = UDim2.new(1, 2, 0, -3),
-            Size = UDim2.fromOffset(18, 18),
-            Text = "×",
-            TextSize = 16,
-            TextTransparency = 0.25,
-            ZIndex = 6,
-            Parent = Holder,
+            BackgroundColor3 = "MainColor",
+            BackgroundTransparency = 0.38,
+            Position = UDim2.new(1, 0, 0, 3),
+            Size = UDim2.fromOffset(24, 24),
+            Text = "x",
+            TextSize = 13,
+            TextTransparency = 0.18,
+            ZIndex = Header.ZIndex + 2,
+            Parent = Header,
         })
-
+        table.insert(
+            Library.Corners,
+            New("UICorner", {
+                CornerRadius = UDim.new(1, 0),
+                Parent = CloseButton,
+            })
+        )
+        Library:AddOutline(CloseButton, {
+            Transparency = 0.72,
+            ShadowTransparency = 1,
+        })
         Library:GiveSignal(CloseButton.MouseEnter:Connect(function()
             TweenService:Create(CloseButton, Library.TweenInfo, {
+                BackgroundTransparency = 0.2,
                 TextTransparency = 0,
             }):Play()
         end))
         Library:GiveSignal(CloseButton.MouseLeave:Connect(function()
             TweenService:Create(CloseButton, Library.TweenInfo, {
-                TextTransparency = 0.25,
+                BackgroundTransparency = 0.38,
+                TextTransparency = 0.18,
             }):Play()
         end))
         Library:GiveSignal(CloseButton.MouseButton1Click:Connect(function()
@@ -10305,113 +10457,30 @@ function Library:Notify(...)
         end))
     end
 
-    if Data.BigIcon then
-        New("UIListLayout", {
-            Padding = UDim.new(0, 8),
-            FillDirection = Enum.FillDirection.Horizontal,
-            VerticalAlignment = Enum.VerticalAlignment.Center,
-            Parent = ContentContainer,
-        })
-    end
-
-    local BigIconLabel
-    if Data.BigIcon then
-        local ParsedIcon = Library:GetCustomIcon(Data.BigIcon)
-        if ParsedIcon then
-            BigIconLabel = New("ImageLabel", {
-                BackgroundTransparency = 1,
-                Size = UDim2.fromOffset(24, 24),
-                Image = ParsedIcon.Url,
-                ImageColor3 = Data.IconColor or "AccentColor",
-                ImageRectOffset = ParsedIcon.ImageRectOffset,
-                ImageRectSize = ParsedIcon.ImageRectSize,
-                Parent = ContentContainer,
-            })
-        end
-    end
-
-    local TextContainer = New("Frame", {
+    local Desc = New("TextLabel", {
         BackgroundTransparency = 1,
-        AutomaticSize = Enum.AutomaticSize.XY,
-        Size = UDim2.fromScale(0, 0),
-        Parent = ContentContainer,
+        LayoutOrder = 2,
+        Size = UDim2.new(1, 0, 0, 0),
+        Text = Data.Description or "",
+        TextSize = 13,
+        TextTransparency = 0.16,
+        TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Top,
+        Visible = Data.Description ~= nil and Data.Description ~= "",
+        ZIndex = Content.ZIndex + 1,
+        Parent = Content,
     })
-    New("UIListLayout", {
-        Padding = UDim.new(0, 4),
-        Parent = TextContainer,
-    })
-
-    local TitleContainer
-    if Data.Title then
-        TitleContainer = New("Frame", {
-            BackgroundTransparency = 1,
-            Size = UDim2.fromScale(0, 0),
-            Parent = TextContainer,
-        })
-    end
-
-    local IconLabel
-    if Data.Icon and TitleContainer then
-        local ParsedIcon = Library:GetCustomIcon(Data.Icon)
-        if ParsedIcon then
-            IconLabel = New("ImageLabel", {
-                BackgroundTransparency = 1,
-                AnchorPoint = Vector2.new(0, 0.5),
-                Position = UDim2.new(0, 0, 0.5, 1),
-                Size = UDim2.fromOffset(15, 15),
-                Image = ParsedIcon.Url,
-                ImageColor3 = Data.IconColor or "FontColor",
-                ImageRectOffset = ParsedIcon.ImageRectOffset,
-                ImageRectSize = ParsedIcon.ImageRectSize,
-                Parent = TitleContainer,
-            })
-        end
-    end
-
-    local Title
-    local Desc
-    local TitleX = 0
-    local DescX = 0
-
-    local TimerFill
-
-    if Data.Title then
-        Title = New("TextLabel", {
-            AutomaticSize = Enum.AutomaticSize.None,
-            BackgroundTransparency = 1,
-            AnchorPoint = Vector2.new(0, 0.5),
-            Position = UDim2.new(0, (Data.Icon and 21 or 0), 0.5, 0),
-            Size = UDim2.fromScale(0, 0),
-            Text = Data.Title,
-            TextSize = 15,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            TextYAlignment = Enum.TextYAlignment.Center,
-            TextTruncate = Enum.TextTruncate.AtEnd,
-            TextWrapped = false,
-            Parent = TitleContainer,
-        })
-    end
-
-    if Data.Description then
-        Desc = New("TextLabel", {
-            AutomaticSize = Enum.AutomaticSize.None,
-            BackgroundTransparency = 1,
-            Size = UDim2.fromScale(0, 0),
-            Text = Data.Description,
-            TextSize = 14,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            TextWrapped = true,
-            Parent = TextContainer,
-        })
-    end
 
     local ActionContainer
     if typeof(Data.Actions) == "table" and #Data.Actions > 0 then
         ActionContainer = New("Frame", {
             AutomaticSize = Enum.AutomaticSize.Y,
             BackgroundTransparency = 1,
+            LayoutOrder = 3,
             Size = UDim2.fromScale(1, 0),
-            Parent = Holder,
+            ZIndex = Content.ZIndex + 1,
+            Parent = Content,
         })
         New("UIListLayout", {
             FillDirection = Enum.FillDirection.Horizontal,
@@ -10427,26 +10496,32 @@ function Library:Notify(...)
 
             local Button = New("TextButton", {
                 AutomaticSize = Enum.AutomaticSize.X,
-                BackgroundColor3 = Action.Risky and "DestructiveColor" or "BackgroundColor",
-                Size = UDim2.fromOffset(0, 24),
-                Text = tostring(Action.Text or "Action"),
+                BackgroundColor3 = Action.Risky and "DestructiveColor" or "MainColor",
+                BackgroundTransparency = Action.Risky and 0.04 or 0.22,
+                Size = UDim2.fromOffset(0, 26),
+                Text = tostring(Action.Text or Action.Title or "Action"),
+                TextColor3 = Action.Risky and Color3.new(1, 1, 1) or "FontColor",
                 TextSize = 13,
+                ZIndex = ActionContainer.ZIndex + 1,
                 Parent = ActionContainer,
             })
             New("UIPadding", {
-                PaddingLeft = UDim.new(0, 8),
-                PaddingRight = UDim.new(0, 8),
+                PaddingLeft = UDim.new(0, 10),
+                PaddingRight = UDim.new(0, 10),
                 Parent = Button,
             })
             table.insert(
                 Library.Corners,
                 New("UICorner", {
-                    CornerRadius = UDim.new(0, math.max(2, Library.CornerRadius - 1)),
+                    CornerRadius = UDim.new(0, math.max(5, Library.CornerRadius + 2)),
                     Parent = Button,
                 })
             )
-            Library:AddOutline(Button)
-
+            Library:AddOutline(Button, {
+                Color = Action.Risky and "DestructiveColor" or AccentColor,
+                Transparency = Action.Risky and 0.3 or 0.62,
+                ShadowTransparency = 1,
+            })
             Library:GiveSignal(Button.MouseButton1Click:Connect(function()
                 Library:SafeCallback(Action.Callback or Action.Func, Data)
 
@@ -10457,29 +10532,75 @@ function Library:Notify(...)
         end
     end
 
-    function Data:Resize()
-        local ExtraWidth = BigIconLabel and 32 or 0
-        local IconWidth = IconLabel and 21 or 0
-        local CloseWidth = CloseButton and 18 or 0
-        local MaxTextWidth =
-            math.max(48, (NotificationArea.AbsoluteSize.X / Library.DPIScale) - 24 - ExtraWidth - CloseWidth)
-        local MaxTitleWidth = math.max(48, MaxTextWidth - IconWidth)
+    local TimerFill
+    local TimerHolder = New("Frame", {
+        BackgroundTransparency = 1,
+        LayoutOrder = 4,
+        Size = UDim2.new(1, 0, 0, 7),
+        Visible = (Data.Persist ~= true and typeof(Data.Time) ~= "Instance")
+            or typeof(Data.Steps) == "number"
+            or typeof(Data.Progress) == "number",
+        ZIndex = Content.ZIndex + 1,
+        Parent = Content,
+    })
+    local TimerBar = New("Frame", {
+        BackgroundColor3 = "MainColor",
+        BackgroundTransparency = 0.08,
+        BorderSizePixel = 0,
+        Position = UDim2.fromOffset(0, 3),
+        Size = UDim2.new(1, 0, 0, 3),
+        ZIndex = TimerHolder.ZIndex + 1,
+        Parent = TimerHolder,
+    })
+    table.insert(
+        Library.Corners,
+        New("UICorner", {
+            CornerRadius = UDim.new(1, 0),
+            Parent = TimerBar,
+        })
+    )
+    Library:AddOutline(TimerBar, {
+        Transparency = 0.74,
+        ShadowTransparency = 1,
+    })
+    TimerFill = New("Frame", {
+        BackgroundColor3 = AccentColor,
+        BorderSizePixel = 0,
+        Size = UDim2.fromScale(1, 1),
+        ZIndex = TimerBar.ZIndex + 1,
+        Parent = TimerBar,
+    })
+    table.insert(
+        Library.Corners,
+        New("UICorner", {
+            CornerRadius = UDim.new(1, 0),
+            Parent = TimerFill,
+        })
+    )
 
-        if Title then
-            local X, Y = Library:GetTextBounds(Title.Text, Title.FontFace, Title.TextSize, MaxTitleWidth)
-            X = math.min(X, MaxTitleWidth)
-            Title.Size = UDim2.fromOffset(X, math.max(Y, 18))
-            TitleX = X + IconWidth
-            TitleContainer.Size = UDim2.fromOffset(TitleX, math.max(Y, IconLabel and 16 or 0, 18))
-        end
+    function Data:Resize()
+        local MaxWidth = math.max(220, (NotificationArea.AbsoluteSize.X / Library.DPIScale) - 8)
+        TargetWidth = math.clamp(tonumber(Data.Width) or TargetWidth, 220, MaxWidth)
+        FakeBackground.Size = UDim2.fromOffset(TargetWidth, 0)
+
+        local ContentWidth = TargetWidth - 22
+        local DescriptionWidth = math.max(80, ContentWidth)
+        local TitleWidth = math.max(80, ContentWidth - TextLeftOffset - CloseWidth)
+
+        HeaderText.Size = UDim2.new(1, -(TextLeftOffset + CloseWidth), 1, 0)
+        Title.Size = UDim2.new(1, 0, 0, 17)
+        VariantLabel.Size = UDim2.new(1, 0, 0, 12)
 
         if Desc then
-            local X, Y = Library:GetTextBounds(Desc.Text, Desc.FontFace, Desc.TextSize, MaxTextWidth)
-            Desc.Size = UDim2.fromOffset(X, Y)
-            DescX = X
+            local _X, Y = Library:GetTextBounds(Desc.Text, Desc.FontFace, Desc.TextSize, DescriptionWidth)
+            Desc.Size = UDim2.new(1, 0, 0, math.max(0, Y))
+            Desc.Visible = Desc.Text ~= ""
         end
 
-        FakeBackground.Size = UDim2.fromOffset(math.max(TitleX, DescX) + 24 + ExtraWidth + CloseWidth, 0)
+        if Title then
+            local _X, Y = Library:GetTextBounds(Title.Text, Title.FontFace, Title.TextSize, TitleWidth)
+            Title.Size = UDim2.new(1, 0, 0, math.max(17, Y))
+        end
     end
 
     function Data:ChangeTitle(Text)
@@ -10494,6 +10615,7 @@ function Library:Notify(...)
         if Desc then
             Data.Description = tostring(Text)
             Desc.Text = Data.Description
+            Desc.Visible = Data.Description ~= ""
             Data:Resize()
         end
     end
@@ -10513,6 +10635,10 @@ function Library:Notify(...)
     end
 
     function Data:Destroy()
+        if Data.Destroyed then
+            return
+        end
+
         Data.Destroyed = true
 
         if typeof(Data.Time) == "Instance" then
@@ -10523,11 +10649,26 @@ function Library:Notify(...)
             DeleteConnection:Disconnect()
         end
 
-        TweenService
-            :Create(Holder, Library.NotifyTweenInfo, {
-                Position = Library.NotifySide:lower() == "left" and UDim2.new(-1, -8, 0, -2) or UDim2.new(1, 8, 0, -2),
-            })
-            :Play()
+        TweenService:Create(HolderScale, Library.NotifyTweenInfo, {
+            Scale = 0.96,
+        }):Play()
+        TweenService:Create(Holder, Library.NotifyTweenInfo, {
+            BackgroundTransparency = 1,
+            Position = NotifyOnLeft and UDim2.new(-1, -10, 0, 0) or UDim2.new(1, 10, 0, 0),
+        }):Play()
+        TweenService:Create(AccentRail, Library.NotifyTweenInfo, {
+            BackgroundTransparency = 1,
+        }):Play()
+        if IconTile then
+            TweenService:Create(IconTile, Library.NotifyTweenInfo, {
+                BackgroundTransparency = 1,
+            }):Play()
+        end
+        if HolderOutline then
+            TweenService:Create(HolderOutline, Library.NotifyTweenInfo, {
+                Transparency = 1,
+            }):Play()
+        end
 
         task.delay(Library.NotifyTweenInfo.Time, function()
             Library.Notifications[FakeBackground] = nil
@@ -10536,28 +10677,6 @@ function Library:Notify(...)
     end
 
     Data:Resize()
-
-    local TimerHolder = New("Frame", {
-        BackgroundTransparency = 1,
-        Size = UDim2.new(1, 0, 0, 7),
-        Visible = (Data.Persist ~= true and typeof(Data.Time) ~= "Instance")
-            or typeof(Data.Steps) == "number"
-            or typeof(Data.Progress) == "number",
-        Parent = Holder,
-    })
-    local TimerBar = New("Frame", {
-        BackgroundColor3 = "BackgroundColor",
-        BorderColor3 = "OutlineColor",
-        BorderSizePixel = 1,
-        Position = UDim2.fromOffset(0, 3),
-        Size = UDim2.new(1, 0, 0, 2),
-        Parent = TimerHolder,
-    })
-    TimerFill = New("Frame", {
-        BackgroundColor3 = Data.AccentColor or "AccentColor",
-        Size = UDim2.fromScale(1, 1),
-        Parent = TimerBar,
-    })
 
     if typeof(Data.Progress) == "number" then
         Data:SetProgress(Data.Progress)
@@ -10582,7 +10701,14 @@ function Library:Notify(...)
 
     FakeBackground.Visible = true
     TweenService:Create(Holder, Library.NotifyTweenInfo, {
+        BackgroundTransparency = BaseCardTransparency,
         Position = UDim2.fromOffset(0, 0),
+    }):Play()
+    TweenService:Create(HolderScale, Library.NotifyTweenInfo, {
+        Scale = 1,
+    }):Play()
+    TweenService:Create(AccentRail, Library.NotifyTweenInfo, {
+        BackgroundTransparency = 0,
     }):Play()
 
     task.delay(Library.NotifyTweenInfo.Time, function()
@@ -11543,11 +11669,10 @@ function Library:CreateWindow(WindowInfo)
         local TextLeft = 11 + AssetWidth + 7
         local IdleDelay = math.max(0.35, tonumber(WindowInfo.DynamicIslandIdleDelay) or 2.35)
         local ActionMenuEnabled = WindowInfo.DynamicIslandActionMenu ~= false
-        local HoldDuration = math.max(
-            0.2,
-            tonumber(WindowInfo.DynamicIslandActionHoldDuration or WindowInfo.DynamicIslandHoldDuration) or 5
-        )
         local ActionAutoCloseDelay = math.max(2, tonumber(WindowInfo.DynamicIslandActionAutoCloseDelay) or 8)
+        local DragOpenThreshold = math.max(18, tonumber(WindowInfo.DynamicIslandDragOpenThreshold) or 46)
+        local DragLockThreshold = math.max(28, tonumber(WindowInfo.DynamicIslandDragLockThreshold) or 64)
+        local PanelCloseThreshold = math.max(16, tonumber(WindowInfo.DynamicIslandPanelCloseThreshold) or 28)
         local IdleEnabled = WindowInfo.DynamicIslandIdle ~= false and WindowInfo.DynamicIslandIdleEnabled ~= false
         local ActionOffset = if typeof(WindowInfo.DynamicIslandActionOffset) == "Vector2"
             then WindowInfo.DynamicIslandActionOffset
@@ -11578,6 +11703,7 @@ function Library:CreateWindow(WindowInfo)
         end
         local ActiveCornerRadius = ResolveIslandCornerRadius(WindowInfo.DynamicIslandCornerRadius, UDim.new(1, 0))
         local IdleCornerRadius = ResolveIslandCornerRadius(WindowInfo.DynamicIslandIdleCornerRadius, UDim.new(0, 7))
+        local PanelCornerRadius = ResolveIslandCornerRadius(WindowInfo.DynamicIslandPanelCornerRadius, UDim.new(0, 10))
         local Island = New("TextButton", {
             Name = "DynamicIslandToggle",
             Active = true,
@@ -11790,6 +11916,25 @@ function Library:CreateWindow(WindowInfo)
             Parent = ActionContainer,
         })
         local ActionButtonRecords = {}
+        local PanelGrabBar = New("TextButton", {
+            AnchorPoint = Vector2.new(0.5, 1),
+            AutoButtonColor = false,
+            BackgroundColor3 = "WhiteColor",
+            BackgroundTransparency = 1,
+            Position = UDim2.new(0.5, 0, 1, -5),
+            Size = UDim2.fromOffset(54, 4),
+            Text = "",
+            Visible = false,
+            ZIndex = Island.ZIndex + 7,
+            Parent = Island,
+        })
+        table.insert(
+            Library.Corners,
+            New("UICorner", {
+                CornerRadius = UDim.new(1, 0),
+                Parent = PanelGrabBar,
+            })
+        )
 
         local Controller = {
             Holder = Island,
@@ -11802,7 +11947,6 @@ function Library:CreateWindow(WindowInfo)
         local PressToken = 0
         local IsIdle = false
         local IsPressing = false
-        local LongPressTriggered = false
         local ActionMenuOpen = false
         local ActionMenuToken = 0
         local ContentVisibilityToken = 0
@@ -11819,6 +11963,108 @@ function Library:CreateWindow(WindowInfo)
             Label.Image = Icon.Url or ""
             Label.ImageRectOffset = Icon.ImageRectOffset or Vector2.zero
             Label.ImageRectSize = Icon.ImageRectSize or Vector2.zero
+        end
+
+        local DragHintHolder = New("Frame", {
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            BackgroundTransparency = 1,
+            Position = UDim2.fromScale(0.5, 0.5),
+            Size = UDim2.new(1, -14, 1, -4),
+            Visible = false,
+            ZIndex = Island.ZIndex + 6,
+            Parent = Island,
+        })
+        local DragHintScale = New("UIScale", {
+            Scale = 0.94,
+            Parent = DragHintHolder,
+        })
+        New("UIListLayout", {
+            FillDirection = Enum.FillDirection.Horizontal,
+            HorizontalAlignment = Enum.HorizontalAlignment.Center,
+            Padding = UDim.new(0, 6),
+            VerticalAlignment = Enum.VerticalAlignment.Center,
+            Parent = DragHintHolder,
+        })
+        local DragHintArrows = New("TextLabel", {
+            AutomaticSize = Enum.AutomaticSize.X,
+            BackgroundTransparency = 1,
+            FontFace = IslandFont,
+            Size = UDim2.new(0, 0, 1, 0),
+            Text = "→ →",
+            TextColor3 = "AccentColor",
+            TextSize = math.clamp(TopbarHeight * 0.32, 11, 14),
+            TextTransparency = 1,
+            ZIndex = DragHintHolder.ZIndex + 1,
+            Parent = DragHintHolder,
+        })
+        local DragHintUnlock = New("ImageLabel", {
+            BackgroundTransparency = 1,
+            ImageColor3 = "WhiteColor",
+            ImageTransparency = 1,
+            Size = UDim2.fromOffset(13, 13),
+            ZIndex = DragHintHolder.ZIndex + 1,
+            Parent = DragHintHolder,
+        })
+        local DragHintDash = New("TextLabel", {
+            AutomaticSize = Enum.AutomaticSize.X,
+            BackgroundTransparency = 1,
+            FontFace = IslandFont,
+            Size = UDim2.new(0, 0, 1, 0),
+            Text = "-",
+            TextColor3 = "FontColor",
+            TextSize = math.clamp(TopbarHeight * 0.28, 10, 12),
+            TextTransparency = 1,
+            ZIndex = DragHintHolder.ZIndex + 1,
+            Parent = DragHintHolder,
+        })
+        local DragHintLock = New("ImageLabel", {
+            BackgroundTransparency = 1,
+            ImageColor3 = "WhiteColor",
+            ImageTransparency = 1,
+            Size = UDim2.fromOffset(13, 13),
+            ZIndex = DragHintHolder.ZIndex + 1,
+            Parent = DragHintHolder,
+        })
+        ApplyImageLabelIcon(DragHintUnlock, UnlockedIcon)
+        ApplyImageLabelIcon(DragHintLock, LockedIcon)
+
+        local function SetDragHintVisible(Visible: boolean, Direction: number?)
+            Visible = Visible == true
+            DragHintArrows.Text = (Direction or 1) < 0 and "← ←" or "→ →"
+            if DragHintHolder.Visible == Visible then
+                return
+            end
+
+            DragHintHolder.Visible = true
+            AssetHolder.Visible = not Visible
+            TextHolder.Visible = not Visible
+            StatusDot.Visible = not Visible
+
+            local TargetTransparency = Visible and 0 or 1
+            local TweenSpec = TweenInfo.new(0.14, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+            TweenService:Create(DragHintScale, TweenSpec, {
+                Scale = Visible and 1 or 0.94,
+            }):Play()
+            TweenService:Create(DragHintArrows, TweenSpec, {
+                TextTransparency = TargetTransparency,
+            }):Play()
+            TweenService:Create(DragHintUnlock, TweenSpec, {
+                ImageTransparency = TargetTransparency,
+            }):Play()
+            TweenService:Create(DragHintDash, TweenSpec, {
+                TextTransparency = math.clamp(TargetTransparency + 0.18, 0, 1),
+            }):Play()
+            TweenService:Create(DragHintLock, TweenSpec, {
+                ImageTransparency = TargetTransparency,
+            }):Play()
+
+            if not Visible then
+                task.delay(0.16, function()
+                    if DragHintArrows.TextTransparency >= 0.98 then
+                        DragHintHolder.Visible = false
+                    end
+                end)
+            end
         end
 
         local function SetLockVisual(Locked: boolean)
@@ -12217,6 +12463,7 @@ function Library:CreateWindow(WindowInfo)
                 RefreshActionButtons()
                 SetIslandContentVisible(true)
                 ActionContainer.Visible = true
+                PanelGrabBar.Visible = true
             else
                 StatusLabel.Text = Library.CantDragForced and (WindowInfo.DynamicIslandLockedText or "Locked")
                     or (
@@ -12237,6 +12484,7 @@ function Library:CreateWindow(WindowInfo)
             local TargetShadowTransparency = Open and DynamicIslandShadowTransparency or DynamicIslandShadowTransparency
             local TargetGlassTransparency = Open and math.max(0, GlassTransparency - 0.05) or GlassTransparency
             local TargetShineTransparency = Open and 0.78 or 0.86
+            local TargetCornerRadius = Open and PanelCornerRadius or ActiveCornerRadius
             local TweenTime = Instant and 0 or (Open and 0.34 or 0.24)
             local TweenStyle = Open and Enum.EasingStyle.Back or Enum.EasingStyle.Quint
             local TweenDirection = Open and Enum.EasingDirection.Out or Enum.EasingDirection.Out
@@ -12256,9 +12504,9 @@ function Library:CreateWindow(WindowInfo)
                 end
                 GlassLayer.BackgroundTransparency = TargetGlassTransparency
                 ShineLayer.BackgroundTransparency = TargetShineTransparency
-                IslandCorner.CornerRadius = ActiveCornerRadius
-                GlassCorner.CornerRadius = ActiveCornerRadius
-                ShineCorner.CornerRadius = ActiveCornerRadius
+                IslandCorner.CornerRadius = TargetCornerRadius
+                GlassCorner.CornerRadius = TargetCornerRadius
+                ShineCorner.CornerRadius = TargetCornerRadius
                 AssetHolder.Position = Open and ActionAssetPosition or NormalAssetPosition
                 TextHolder.Position = Open and ActionTextPosition or NormalTextPosition
                 TextHolder.Size = Open and ActionTextSize or NormalTextSize
@@ -12269,6 +12517,8 @@ function Library:CreateWindow(WindowInfo)
                 StatusDot.ImageTransparency = Library.CantDragForced and 0.04 or 0.18
                 SetAllActionButtonsTransparency(Open and 0 or 1, true)
                 ActionContainer.Visible = Open
+                PanelGrabBar.BackgroundTransparency = Open and 0.42 or 1
+                PanelGrabBar.Visible = Open
             end
 
             if Instant then
@@ -12302,13 +12552,13 @@ function Library:CreateWindow(WindowInfo)
                     BackgroundTransparency = TargetShineTransparency,
                 }):Play()
                 TweenService:Create(IslandCorner, TweenInfo.new(TweenTime, Enum.EasingStyle.Sine), {
-                    CornerRadius = ActiveCornerRadius,
+                    CornerRadius = TargetCornerRadius,
                 }):Play()
                 TweenService:Create(GlassCorner, TweenInfo.new(TweenTime, Enum.EasingStyle.Sine), {
-                    CornerRadius = ActiveCornerRadius,
+                    CornerRadius = TargetCornerRadius,
                 }):Play()
                 TweenService:Create(ShineCorner, TweenInfo.new(TweenTime, Enum.EasingStyle.Sine), {
-                    CornerRadius = ActiveCornerRadius,
+                    CornerRadius = TargetCornerRadius,
                 }):Play()
                 TweenService:Create(AssetHolder, TweenInfo.new(TweenTime, Enum.EasingStyle.Quint), {
                     Position = Open and ActionAssetPosition or NormalAssetPosition,
@@ -12327,6 +12577,9 @@ function Library:CreateWindow(WindowInfo)
                 TweenService:Create(AssetImage, TweenInfo.new(TweenTime, Enum.EasingStyle.Sine), {
                     ImageTransparency = 0,
                 }):Play()
+                TweenService:Create(PanelGrabBar, TweenInfo.new(TweenTime, Enum.EasingStyle.Sine), {
+                    BackgroundTransparency = Open and 0.42 or 1,
+                }):Play()
                 SetAllActionButtonsTransparency(Open and 0 or 1, Instant)
             end
 
@@ -12341,10 +12594,12 @@ function Library:CreateWindow(WindowInfo)
                 end)
             elseif Instant then
                 ActionContainer.Visible = false
+                PanelGrabBar.Visible = false
             else
                 task.delay(TweenTime + 0.04, function()
                     if CurrentActionMenuToken == ActionMenuToken and not ActionMenuOpen then
                         ActionContainer.Visible = false
+                        PanelGrabBar.Visible = false
                     end
                 end)
             end
@@ -12513,6 +12768,39 @@ function Library:CreateWindow(WindowInfo)
             return IsMouseInput(Input) and Input.UserInputState == State
         end
 
+        local PressStartPosition: Vector2?
+        local LastDragDelta = Vector2.zero
+        local DraggingIsland = false
+        local DragActionConsumed = false
+        local DragHintActive = false
+        local ClosingPanelFromBar = false
+        local PanelBarStartPosition: Vector2?
+
+        local function InputPosition2D(Input: InputObject): Vector2
+            return Vector2.new(Input.Position.X, Input.Position.Y)
+        end
+
+        local function ResetIslandDragState()
+            IsPressing = false
+            PressStartPosition = nil
+            LastDragDelta = Vector2.zero
+            DraggingIsland = false
+            DragActionConsumed = false
+            if DragHintActive then
+                DragHintActive = false
+                SetDragHintVisible(false)
+            end
+        end
+
+        local function ResetPanelBarDragState()
+            ClosingPanelFromBar = false
+            PanelBarStartPosition = nil
+            TweenService:Create(PanelGrabBar, TweenInfo.new(0.14, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
+                BackgroundTransparency = ActionMenuOpen and 0.42 or 1,
+                Size = UDim2.fromOffset(54, 4),
+            }):Play()
+        end
+
         Island.MouseEnter:Connect(function()
             Controller:Wake()
             TweenService:Create(Island, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
@@ -12548,40 +12836,109 @@ function Library:CreateWindow(WindowInfo)
 
             Controller:Wake()
             IsPressing = true
-            LongPressTriggered = false
+            PressStartPosition = InputPosition2D(Input)
+            LastDragDelta = Vector2.zero
+            DraggingIsland = false
+            DragActionConsumed = false
             PressToken += 1
-            local CurrentPressToken = PressToken
-
-            task.delay(HoldDuration, function()
-                if not IsPressing or CurrentPressToken ~= PressToken or not Island.Visible then
-                    return
-                end
-
-                LongPressTriggered = true
-                if ActionMenuEnabled and SetActionMenuOpen then
-                    SetActionMenuOpen(true)
-                else
-                    Library.CantDragForced = not Library.CantDragForced
-                    Controller:SetLocked(Library.CantDragForced)
-                end
-            end)
         end)
-        Island.InputEnded:Connect(function(Input: InputObject)
-            if not IsIslandPressInput(Input, Enum.UserInputState.End) then
+        PanelGrabBar.InputBegan:Connect(function(Input: InputObject)
+            if not ActionMenuOpen or not IsIslandPressInput(Input, Enum.UserInputState.Begin) then
                 return
             end
 
-            local ShouldToggle = IsPressing and not LongPressTriggered and not ActionMenuOpen
-            IsPressing = false
-            LongPressTriggered = false
+            ClosingPanelFromBar = true
+            PanelBarStartPosition = InputPosition2D(Input)
+            PressToken += 1
+            TweenService:Create(PanelGrabBar, TweenInfo.new(0.12, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
+                BackgroundTransparency = 0.18,
+                Size = UDim2.fromOffset(66, 5),
+            }):Play()
+        end)
+        Library:GiveSignal(UserInputService.InputChanged:Connect(function(Input: InputObject)
+            if ActionMenuOpen and ClosingPanelFromBar and PanelBarStartPosition and IsHoverInput(Input) then
+                local Delta = InputPosition2D(Input) - PanelBarStartPosition
+                if Delta.Y < -4 then
+                    local Pull = math.clamp(math.abs(Delta.Y) / PanelCloseThreshold, 0, 1)
+                    TweenService:Create(PanelGrabBar, TweenInfo.new(0.06, Enum.EasingStyle.Linear), {
+                        BackgroundTransparency = 0.18 + (0.32 * (1 - Pull)),
+                        Size = UDim2.fromOffset(66 + (10 * Pull), 5),
+                    }):Play()
+                end
+                return
+            end
+
+            if not IsPressing or not PressStartPosition or not IsHoverInput(Input) or ActionMenuOpen then
+                return
+            end
+
+            local Delta = InputPosition2D(Input) - PressStartPosition
+            LastDragDelta = Delta
+            if Delta.Magnitude < 7 then
+                return
+            end
+
+            DraggingIsland = true
+            local AbsX = math.abs(Delta.X)
+            local AbsY = math.abs(Delta.Y)
+            if Delta.Y >= DragOpenThreshold and AbsY > AbsX * 0.72 then
+                DragActionConsumed = true
+                ResetIslandDragState()
+                if ActionMenuEnabled and SetActionMenuOpen then
+                    SetActionMenuOpen(true)
+                end
+                return
+            end
+
+            if AbsX > 18 and AbsX > AbsY then
+                DragHintActive = true
+                SetDragHintVisible(true, Delta.X)
+            end
+        end))
+        Library:GiveSignal(UserInputService.InputEnded:Connect(function(Input: InputObject)
+            if not IsMouseInput(Input) then
+                return
+            end
+
+            if ClosingPanelFromBar then
+                local DeltaY = 0
+                if PanelBarStartPosition then
+                    DeltaY = InputPosition2D(Input).Y - PanelBarStartPosition.Y
+                end
+                ResetPanelBarDragState()
+                if ActionMenuOpen and DeltaY <= -PanelCloseThreshold and SetActionMenuOpen then
+                    SetActionMenuOpen(false)
+                    Controller:ScheduleIdle()
+                end
+                return
+            end
+
+            if not IsPressing then
+                return
+            end
+
+            local Delta = LastDragDelta
+            local WasDragging = DraggingIsland
+            local WasConsumed = DragActionConsumed
+            ResetIslandDragState()
             PressToken += 1
 
-            if ShouldToggle then
-                Library:Toggle()
-            elseif not ActionMenuOpen then
-                Controller:ScheduleIdle()
+            if WasConsumed then
+                return
             end
-        end)
+
+            if WasDragging then
+                if math.abs(Delta.X) >= DragLockThreshold and math.abs(Delta.X) > math.abs(Delta.Y) then
+                    Library.CantDragForced = Delta.X > 0
+                    Controller:SetLocked(Library.CantDragForced)
+                else
+                    Controller:ScheduleIdle()
+                end
+                return
+            end
+
+            Library:Toggle()
+        end))
 
         if WindowInfo.DynamicIslandDraggable == true then
             Library:MakeDraggable(Island, Island, true, true)
