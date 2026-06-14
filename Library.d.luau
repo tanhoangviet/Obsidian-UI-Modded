@@ -2180,6 +2180,8 @@ export type Library = {
             DynamicIslandTransparency: number?,
             DynamicIslandIdleTransparency: number?,
             DynamicIslandGlassTransparency: number?,
+            DynamicIslandLiquidGlass: boolean?,
+            DynamicIslandLiquidGlassIntensity: number?,
             DynamicIslandBorderThickness: number?,
             DynamicIslandShadow: boolean?,
             DynamicIslandShadowColor: Color3 | string?,

@@ -545,6 +545,10 @@ local Library = {
     ShowCursorBinding = string.sub(tostring({}), 10),
 }
 
+local ScreenGui
+local FloatingSpritesGui
+local DynamicIslandOverlayGui
+
 if RunService:IsStudio() then
     if UserInputService.TouchEnabled and not UserInputService.MouseEnabled then
         Library.IsMobile = true
@@ -706,6 +710,8 @@ local Templates = {
         DynamicIslandTransparency = 0,
         DynamicIslandIdleTransparency = 0.16,
         DynamicIslandGlassTransparency = 0.88,
+        DynamicIslandLiquidGlass = true,
+        DynamicIslandLiquidGlassIntensity = 1,
         DynamicIslandBorderThickness = 1.35,
         DynamicIslandShadow = true,
         DynamicIslandShadowColor = "DarkColor",
@@ -2209,7 +2215,7 @@ function Library:AddFloatingSprite(Info)
 
     local ParentGui = Info.Parent
     if not ParentGui then
-        ParentGui = Info.ParentMode == "Window" and ScreenGui or FloatingSpritesGui
+        ParentGui = Info.ParentMode == "Window" and ScreenGui or DynamicIslandOverlayGui or FloatingSpritesGui
     end
 
     local Sprite = {
@@ -2306,6 +2312,10 @@ function Library:AddFloatingSprite(Info)
     end
 
     function Sprite:BringToFront()
+        if DynamicIslandOverlayGui then
+            DynamicIslandOverlayGui.DisplayOrder = math.max(DynamicIslandOverlayGui.DisplayOrder, 1004)
+        end
+
         if FloatingSpritesGui then
             FloatingSpritesGui.DisplayOrder = math.max(FloatingSpritesGui.DisplayOrder, 1001)
         end
@@ -2422,7 +2432,7 @@ local function ParentUI(UI: Instance, SkipHiddenUI: boolean?)
     SafeParentUI(UI, gethui)
 end
 
-local ScreenGui = New("ScreenGui", {
+ScreenGui = New("ScreenGui", {
     Name = "Obsidian",
     DisplayOrder = 998,
     ResetOnSpawn = false,
@@ -2431,7 +2441,7 @@ local ScreenGui = New("ScreenGui", {
 ParentUI(ScreenGui)
 Library.ScreenGui = ScreenGui
 
-local FloatingSpritesGui = New("ScreenGui", {
+FloatingSpritesGui = New("ScreenGui", {
     Name = "ObsidianFloatingSprites",
     DisplayOrder = 1001,
     IgnoreGuiInset = true,
@@ -2440,6 +2450,16 @@ local FloatingSpritesGui = New("ScreenGui", {
 })
 ParentUI(FloatingSpritesGui)
 Library.FloatingSpritesGui = FloatingSpritesGui
+
+DynamicIslandOverlayGui = New("ScreenGui", {
+    Name = "ObsidianDynamicIslandOverlay",
+    DisplayOrder = 1004,
+    IgnoreGuiInset = true,
+    ResetOnSpawn = false,
+    ZIndexBehavior = Enum.ZIndexBehavior.Global,
+})
+ParentUI(DynamicIslandOverlayGui)
+Library.DynamicIslandOverlayGui = DynamicIslandOverlayGui
 
 local FullscreenBackground = New("ImageLabel", {
     BackgroundColor3 = "DarkColor",
@@ -3761,13 +3781,17 @@ function Library:Unload()
         FloatingSpritesGui:Destroy()
     end
 
+    if DynamicIslandOverlayGui then
+        DynamicIslandOverlayGui:Destroy()
+    end
+
     getgenv().Library = nil
 end
 
 local CheckIcon = Library:GetIcon("check")
 local ArrowIcon = Library:GetIcon("chevron-up")
-local OptimizeUpIcon = Library:GetIcon("arrow-up") or ArrowIcon
-local OptimizeDownIcon = Library:GetIcon("arrow-down") or Library:GetIcon("chevron-down")
+local OptimizeUpIcon = Library:GetIcon("chevron-up") or ArrowIcon
+local OptimizeDownIcon = Library:GetIcon("chevron-down")
 local ResizeIcon = Library:GetIcon("move-diagonal-2")
 local KeyIcon = Library:GetIcon("key")
 local MoveIcon = Library:GetIcon("move")
@@ -3779,8 +3803,8 @@ function Library:SetIconModule(module: IconModule)
     -- Top ten fixes 🚀
     CheckIcon = Library:GetIcon("check")
     ArrowIcon = Library:GetIcon("chevron-up")
-    OptimizeUpIcon = Library:GetIcon("arrow-up") or ArrowIcon
-    OptimizeDownIcon = Library:GetIcon("arrow-down") or Library:GetIcon("chevron-down")
+    OptimizeUpIcon = Library:GetIcon("chevron-up") or ArrowIcon
+    OptimizeDownIcon = Library:GetIcon("chevron-down")
     ResizeIcon = Library:GetIcon("move-diagonal-2")
     KeyIcon = Library:GetIcon("key")
     MoveIcon = Library:GetIcon("move")
@@ -3799,15 +3823,14 @@ local function SetOptimizeIcon(IconLabel: ImageLabel, FallbackLabel: TextLabel, 
 
     IconLabel.Visible = false
     FallbackLabel.Visible = true
-    FallbackLabel.Text = Collapsed and "↓" or "↑"
+    FallbackLabel.Text = Collapsed and "⌄" or "⌃"
 end
 
 local function CreateOptimizeButton(Parent: GuiObject, CornerRadius: number, OnClick: () -> ())
     local Button = New("TextButton", {
         Name = "OptimizeButton",
         AnchorPoint = Vector2.new(1, 0),
-        BackgroundColor3 = "MainColor",
-        BackgroundTransparency = 0.18,
+        BackgroundTransparency = 1,
         Position = UDim2.new(1, -4, 0, 4),
         Size = UDim2.fromOffset(26, 26),
         Text = "",
@@ -3821,11 +3844,6 @@ local function CreateOptimizeButton(Parent: GuiObject, CornerRadius: number, OnC
             Parent = Button,
         })
     )
-    Library:AddOutline(Button, {
-        Color = "AccentColor",
-        Transparency = 0.58,
-        ShadowTransparency = 1,
-    })
 
     local IconLabel = New("ImageLabel", {
         AnchorPoint = Vector2.new(0.5, 0.5),
@@ -3841,7 +3859,7 @@ local function CreateOptimizeButton(Parent: GuiObject, CornerRadius: number, OnC
         BackgroundTransparency = 1,
         FontFace = Library.Scheme.Font,
         Size = UDim2.fromScale(1, 1),
-        Text = "↑",
+        Text = "⌃",
         TextColor3 = "AccentColor",
         TextSize = 16,
         Visible = false,
@@ -3850,9 +3868,6 @@ local function CreateOptimizeButton(Parent: GuiObject, CornerRadius: number, OnC
     })
 
     Button.MouseEnter:Connect(function()
-        TweenService:Create(Button, Library.TweenInfo, {
-            BackgroundTransparency = 0.06,
-        }):Play()
         TweenService:Create(IconLabel, Library.TweenInfo, {
             ImageTransparency = 0,
         }):Play()
@@ -3861,9 +3876,6 @@ local function CreateOptimizeButton(Parent: GuiObject, CornerRadius: number, OnC
         }):Play()
     end)
     Button.MouseLeave:Connect(function()
-        TweenService:Create(Button, Library.TweenInfo, {
-            BackgroundTransparency = 0.18,
-        }):Play()
         TweenService:Create(IconLabel, Library.TweenInfo, {
             ImageTransparency = 0.05,
         }):Play()
@@ -11610,6 +11622,8 @@ function Library:CreateWindow(WindowInfo)
             math.clamp(tonumber(WindowInfo.DynamicIslandGlowTransparency) or 0.86, 0, 1)
         local DynamicIslandShadowTransparency =
             math.clamp(tonumber(WindowInfo.DynamicIslandShadowTransparency) or 0.5, 0, 1)
+        local LiquidGlassEnabled = WindowInfo.DynamicIslandLiquidGlass ~= false
+        local LiquidGlassIntensity = math.clamp(tonumber(WindowInfo.DynamicIslandLiquidGlassIntensity) or 1, 0, 1.5)
         local HideContentWhenIdle = WindowInfo.DynamicIslandHideContentWhenIdle ~= false
         local GradientAnimationEnabled = WindowInfo.DynamicIslandGradientAnimation ~= false
         local GradientAnimationSpeed = math.max(1.2, tonumber(WindowInfo.DynamicIslandGradientAnimationSpeed) or 2.8)
@@ -11641,6 +11655,14 @@ function Library:CreateWindow(WindowInfo)
             ActivePosition.Y.Scale,
             ActivePosition.Y.Offset + ActionOffset.Y
         )
+        local function GetPanelGrabBarPosition(Position: UDim2, Size: UDim2): UDim2
+            return UDim2.new(
+                Position.X.Scale,
+                Position.X.Offset,
+                Position.Y.Scale + (Size.Y.Scale * 1.05),
+                Position.Y.Offset + math.floor((Size.Y.Offset * 1.05) + 0.5)
+            )
+        end
         local function ResolveIslandCornerRadius(Value, Default: UDim): UDim
             if typeof(Value) == "UDim" then
                 return Value
@@ -11771,6 +11793,226 @@ function Library:CreateWindow(WindowInfo)
             }),
         })
 
+        local LiquidGlassCorners = {}
+        local function AddLiquidGlassLayer(Info)
+            if not LiquidGlassEnabled then
+                return nil
+            end
+
+            local Layer = New("Frame", {
+                BackgroundColor3 = Info.Color or "WhiteColor",
+                BackgroundTransparency = math.clamp(Info.Transparency or 0.86, 0, 1),
+                BorderSizePixel = 0,
+                Position = Info.Position,
+                Size = Info.Size,
+                ZIndex = Island.ZIndex + 1,
+                Parent = Island,
+            })
+            if Info.CornerRadius then
+                local Corner = New("UICorner", {
+                    CornerRadius = Info.CornerRadius,
+                    Parent = Layer,
+                })
+                table.insert(Library.Corners, Corner)
+                if Info.SyncCorner ~= false then
+                    table.insert(LiquidGlassCorners, Corner)
+                end
+            end
+            if Info.Gradient then
+                Library:AddGradient(Layer, Info.Gradient)
+            end
+            return Layer
+        end
+
+        local LiquidEdgeTransparency = math.clamp(0.78 - (LiquidGlassIntensity * 0.1), 0.58, 0.9)
+        AddLiquidGlassLayer({
+            Color = "WhiteColor",
+            Position = UDim2.fromScale(0, 0),
+            Size = UDim2.fromScale(1, 1),
+            Transparency = math.clamp(0.91 - (LiquidGlassIntensity * 0.04), 0.82, 0.96),
+            CornerRadius = ActiveCornerRadius,
+            Gradient = {
+                Color = function()
+                    return ColorSequence.new({
+                        ColorSequenceKeypoint.new(0, Library:GetBetterColor(Library.Scheme.AccentColor, 38)),
+                        ColorSequenceKeypoint.new(0.48, Library.Scheme.WhiteColor),
+                        ColorSequenceKeypoint.new(1, Library:GetBetterColor(Library.Scheme.MainColor, 26)),
+                    })
+                end,
+                Rotation = 18,
+                Transparency = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0, 0.78),
+                    NumberSequenceKeypoint.new(0.5, 0.92),
+                    NumberSequenceKeypoint.new(1, 0.84),
+                }),
+            },
+        })
+        AddLiquidGlassLayer({
+            Color = "WhiteColor",
+            Position = UDim2.fromOffset(3, 1),
+            Size = UDim2.new(1, -6, 0, math.max(8, math.floor(TopbarHeight * 0.28))),
+            Transparency = math.clamp(0.72 - (LiquidGlassIntensity * 0.08), 0.58, 0.84),
+            CornerRadius = ActiveCornerRadius,
+            Gradient = {
+                Color = function()
+                    return ColorSequence.new({
+                        ColorSequenceKeypoint.new(0, Library.Scheme.WhiteColor),
+                        ColorSequenceKeypoint.new(0.55, Library:GetBetterColor(Library.Scheme.AccentColor, 45)),
+                        ColorSequenceKeypoint.new(1, Library.Scheme.WhiteColor),
+                    })
+                end,
+                Rotation = 90,
+                Transparency = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0, 0.28),
+                    NumberSequenceKeypoint.new(0.45, 0.74),
+                    NumberSequenceKeypoint.new(1, 1),
+                }),
+            },
+        })
+        AddLiquidGlassLayer({
+            Color = "DarkColor",
+            Position = UDim2.new(0, 3, 1, -math.max(8, math.floor(TopbarHeight * 0.28))),
+            Size = UDim2.new(1, -6, 0, math.max(8, math.floor(TopbarHeight * 0.28))),
+            Transparency = 0.88,
+            CornerRadius = ActiveCornerRadius,
+            Gradient = {
+                Color = function()
+                    return ColorSequence.new({
+                        ColorSequenceKeypoint.new(0, Library.Scheme.AccentColor),
+                        ColorSequenceKeypoint.new(1, Library.Scheme.DarkColor),
+                    })
+                end,
+                Rotation = -90,
+                Transparency = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0, 1),
+                    NumberSequenceKeypoint.new(0.5, 0.78),
+                    NumberSequenceKeypoint.new(1, 0.42),
+                }),
+            },
+        })
+        AddLiquidGlassLayer({
+            Position = UDim2.fromOffset(4, 2),
+            Size = UDim2.new(1, -8, 0, math.max(3, math.floor(TopbarHeight * 0.18))),
+            Transparency = math.clamp(0.82 - (LiquidGlassIntensity * 0.08), 0.62, 0.9),
+            CornerRadius = UDim.new(1, 0),
+            SyncCorner = false,
+            Gradient = {
+                Color = function()
+                    return ColorSequence.new({
+                        ColorSequenceKeypoint.new(0, Library.Scheme.WhiteColor),
+                        ColorSequenceKeypoint.new(0.58, Library:GetBetterColor(Library.Scheme.AccentColor, 30)),
+                        ColorSequenceKeypoint.new(1, Library.Scheme.WhiteColor),
+                    })
+                end,
+                Rotation = 0,
+                Transparency = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0, 0.34),
+                    NumberSequenceKeypoint.new(0.55, 0.72),
+                    NumberSequenceKeypoint.new(1, 0.94),
+                }),
+            },
+        })
+        AddLiquidGlassLayer({
+            Color = "DarkColor",
+            Position = UDim2.new(0, 5, 1, -math.max(5, math.floor(TopbarHeight * 0.2))),
+            Size = UDim2.new(1, -10, 0, math.max(5, math.floor(TopbarHeight * 0.2))),
+            Transparency = 0.9,
+            CornerRadius = UDim.new(1, 0),
+            SyncCorner = false,
+            Gradient = {
+                Color = function()
+                    return ColorSequence.new({
+                        ColorSequenceKeypoint.new(0, Library.Scheme.AccentColor),
+                        ColorSequenceKeypoint.new(1, Library.Scheme.DarkColor),
+                    })
+                end,
+                Rotation = 90,
+                Transparency = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0, 0.92),
+                    NumberSequenceKeypoint.new(1, 0.5),
+                }),
+            },
+        })
+        AddLiquidGlassLayer({
+            Color = Color3.fromRGB(95, 238, 255),
+            Position = UDim2.fromOffset(2, 4),
+            Size = UDim2.new(0, math.max(1, math.floor(2 * LiquidGlassIntensity)), 1, -8),
+            Transparency = LiquidEdgeTransparency,
+            CornerRadius = UDim.new(1, 0),
+            SyncCorner = false,
+        })
+        AddLiquidGlassLayer({
+            Color = Color3.fromRGB(255, 106, 232),
+            Position = UDim2.new(1, -math.max(4, math.floor(4 * LiquidGlassIntensity)), 0, 4),
+            Size = UDim2.new(0, math.max(1, math.floor(2 * LiquidGlassIntensity)), 1, -8),
+            Transparency = math.clamp(LiquidEdgeTransparency + 0.04, 0, 1),
+            CornerRadius = UDim.new(1, 0),
+            SyncCorner = false,
+        })
+        local LiquidHoverLayer = AddLiquidGlassLayer({
+            Color = "WhiteColor",
+            Position = UDim2.fromScale(0, 0),
+            Size = UDim2.fromScale(1, 1),
+            Transparency = 1,
+            CornerRadius = ActiveCornerRadius,
+            Gradient = {
+                Color = function()
+                    return ColorSequence.new({
+                        ColorSequenceKeypoint.new(0, Library.Scheme.WhiteColor),
+                        ColorSequenceKeypoint.new(0.5, Library:GetBetterColor(Library.Scheme.AccentColor, 48)),
+                        ColorSequenceKeypoint.new(1, Library.Scheme.WhiteColor),
+                    })
+                end,
+                Offset = Vector2.zero,
+                Rotation = 32,
+                Transparency = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0, 0.82),
+                    NumberSequenceKeypoint.new(0.45, 0.93),
+                    NumberSequenceKeypoint.new(1, 1),
+                }),
+            },
+        })
+        local LiquidHoverGradient = LiquidHoverLayer and LiquidHoverLayer:FindFirstChildOfClass("UIGradient")
+        local LiquidSecondaryBorder
+        local LiquidSecondaryCorner
+        if LiquidGlassEnabled then
+            LiquidSecondaryBorder = New("Frame", {
+                BackgroundTransparency = 1,
+                Position = UDim2.fromOffset(2, 2),
+                Size = UDim2.new(1, -4, 1, -4),
+                ZIndex = Island.ZIndex + 1,
+                Parent = Island,
+            })
+            LiquidSecondaryCorner = New("UICorner", {
+                CornerRadius = UDim.new(ActiveCornerRadius.Scale, math.max(0, ActiveCornerRadius.Offset - 2)),
+                Parent = LiquidSecondaryBorder,
+            })
+            table.insert(Library.Corners, LiquidSecondaryCorner)
+            table.insert(LiquidGlassCorners, LiquidSecondaryCorner)
+            local SecondaryStroke = New("UIStroke", {
+                ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+                Color = "WhiteColor",
+                Thickness = math.max(0.5, BorderThickness * 0.58),
+                Transparency = 0.72,
+                Parent = LiquidSecondaryBorder,
+            })
+            Library:AddGradient(SecondaryStroke, {
+                Color = function()
+                    return ColorSequence.new({
+                        ColorSequenceKeypoint.new(0, Library.Scheme.WhiteColor),
+                        ColorSequenceKeypoint.new(0.42, Library:GetBetterColor(Library.Scheme.AccentColor, 42)),
+                        ColorSequenceKeypoint.new(1, Library.Scheme.WhiteColor),
+                    })
+                end,
+                Rotation = 135,
+                Transparency = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0, 0.78),
+                    NumberSequenceKeypoint.new(0.5, 0.24),
+                    NumberSequenceKeypoint.new(1, 0.82),
+                }),
+            })
+        end
+
         local AssetHolder = New("Frame", {
             AnchorPoint = Vector2.new(0, 0.5),
             BackgroundTransparency = 1,
@@ -11868,18 +12110,21 @@ function Library:CreateWindow(WindowInfo)
             Parent = ActionContainer,
         })
         local ActionButtonRecords = {}
-        local PanelGrabBarPosition = UDim2.new(0.5, 0, 1.05, 0)
+        local PanelGrabBarPosition = GetPanelGrabBarPosition(ActionPosition, ActionSize)
         local PanelGrabBar = New("TextButton", {
+            Name = "DynamicIslandPanelGrabBar",
+            Active = true,
             AnchorPoint = Vector2.new(0.5, 1),
             AutoButtonColor = false,
             BackgroundColor3 = "WhiteColor",
             BackgroundTransparency = 1,
             Position = PanelGrabBarPosition,
-            Size = UDim2.fromOffset(54, 4),
+            Selectable = false,
+            Size = UDim2.fromOffset(68, 5),
             Text = "",
             Visible = false,
-            ZIndex = Island.ZIndex + 7,
-            Parent = Island,
+            ZIndex = 60000,
+            Parent = DynamicIslandOverlayGui,
         })
         table.insert(
             Library.Corners,
@@ -11888,6 +12133,29 @@ function Library:CreateWindow(WindowInfo)
                 Parent = PanelGrabBar,
             })
         )
+        Library:AddGradient(PanelGrabBar, {
+            Color = function()
+                return ColorSequence.new({
+                    ColorSequenceKeypoint.new(0, Library.Scheme.WhiteColor),
+                    ColorSequenceKeypoint.new(0.5, Library:GetBetterColor(Library.Scheme.AccentColor, 35)),
+                    ColorSequenceKeypoint.new(1, Library.Scheme.WhiteColor),
+                })
+            end,
+            Rotation = 0,
+            Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 0.24),
+                NumberSequenceKeypoint.new(0.5, 0),
+                NumberSequenceKeypoint.new(1, 0.24),
+            }),
+        })
+        Library:AddShadowGlow(PanelGrabBar, {
+            Name = "DynamicIslandGrabBarGlow",
+            Color = WindowInfo.DynamicIslandGlowColor or "WhiteColor",
+            Transparency = 0.82,
+            Size = 8,
+            Offset = Vector2.zero,
+            ZIndex = PanelGrabBar.ZIndex - 1,
+        })
 
         local Controller = {
             Holder = Island,
@@ -11943,7 +12211,7 @@ function Library:CreateWindow(WindowInfo)
             BackgroundTransparency = 1,
             FontFace = IslandFont,
             Size = UDim2.new(0, 0, 1, 0),
-            Text = "→ →",
+            Text = "› ›",
             TextColor3 = "AccentColor",
             TextSize = math.clamp(TopbarHeight * 0.32, 11, 14),
             TextTransparency = 1,
@@ -11983,7 +12251,7 @@ function Library:CreateWindow(WindowInfo)
 
         local function SetDragHintVisible(Visible: boolean, Direction: number?)
             Visible = Visible == true
-            DragHintArrows.Text = (Direction or 1) < 0 and "← ←" or "→ →"
+            DragHintArrows.Text = (Direction or 1) < 0 and "‹ ‹" or "› ›"
             if DragHintHolder.Visible == Visible then
                 return
             end
@@ -12088,6 +12356,24 @@ function Library:CreateWindow(WindowInfo)
         local function SetAllActionButtonsTransparency(Transparency: number, Instant: boolean?)
             for _, Record in ActionButtonRecords do
                 SetActionButtonTransparency(Record, Transparency, Instant)
+            end
+        end
+
+        local function SetLiquidGlassCorner(CornerRadius: UDim, TweenTime: number?)
+            for _, Corner in LiquidGlassCorners do
+                if Corner.Parent then
+                    local TargetRadius = Corner == LiquidSecondaryCorner
+                            and UDim.new(CornerRadius.Scale, math.max(0, CornerRadius.Offset - 2))
+                        or CornerRadius
+
+                    if TweenTime and TweenTime > 0 then
+                        TweenService:Create(Corner, TweenInfo.new(TweenTime, Enum.EasingStyle.Sine), {
+                            CornerRadius = TargetRadius,
+                        }):Play()
+                    else
+                        Corner.CornerRadius = TargetRadius
+                    end
+                end
             end
         end
 
@@ -12301,6 +12587,7 @@ function Library:CreateWindow(WindowInfo)
                 IslandCorner.CornerRadius = TargetCornerRadius
                 GlassCorner.CornerRadius = TargetCornerRadius
                 ShineCorner.CornerRadius = TargetCornerRadius
+                SetLiquidGlassCorner(TargetCornerRadius, 0)
                 TitleLabel.TextTransparency = TargetTitleTransparency
                 StatusLabel.TextTransparency = TargetStatusTransparency
                 AssetImage.ImageTransparency = TargetIconTransparency
@@ -12367,6 +12654,7 @@ function Library:CreateWindow(WindowInfo)
                     CornerRadius = TargetCornerRadius,
                 })
                 :Play()
+            SetLiquidGlassCorner(TargetCornerRadius, TweenTime)
             TweenService
                 :Create(TitleLabel, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                     TextTransparency = TargetTitleTransparency,
@@ -12460,6 +12748,7 @@ function Library:CreateWindow(WindowInfo)
                 IslandCorner.CornerRadius = TargetCornerRadius
                 GlassCorner.CornerRadius = TargetCornerRadius
                 ShineCorner.CornerRadius = TargetCornerRadius
+                SetLiquidGlassCorner(TargetCornerRadius, 0)
                 AssetHolder.Position = Open and ActionAssetPosition or NormalAssetPosition
                 TextHolder.Position = Open and ActionTextPosition or NormalTextPosition
                 TextHolder.Size = Open and ActionTextSize or NormalTextSize
@@ -12470,7 +12759,8 @@ function Library:CreateWindow(WindowInfo)
                 StatusDot.ImageTransparency = Library.CantDragForced and 0.04 or 0.18
                 SetAllActionButtonsTransparency(Open and 0 or 1, true)
                 ActionContainer.Visible = Open
-                PanelGrabBar.BackgroundTransparency = Open and 0.42 or 1
+                PanelGrabBar.BackgroundTransparency = Open and 0.16 or 1
+                PanelGrabBar.Position = GetPanelGrabBarPosition(TargetPosition, TargetSize)
                 PanelGrabBar.Visible = Open
             end
 
@@ -12513,6 +12803,7 @@ function Library:CreateWindow(WindowInfo)
                 TweenService:Create(ShineCorner, TweenInfo.new(TweenTime, Enum.EasingStyle.Sine), {
                     CornerRadius = TargetCornerRadius,
                 }):Play()
+                SetLiquidGlassCorner(TargetCornerRadius, TweenTime)
                 TweenService:Create(AssetHolder, TweenInfo.new(TweenTime, Enum.EasingStyle.Quint), {
                     Position = Open and ActionAssetPosition or NormalAssetPosition,
                 }):Play()
@@ -12531,7 +12822,8 @@ function Library:CreateWindow(WindowInfo)
                     ImageTransparency = 0,
                 }):Play()
                 TweenService:Create(PanelGrabBar, TweenInfo.new(TweenTime, Enum.EasingStyle.Sine), {
-                    BackgroundTransparency = Open and 0.42 or 1,
+                    BackgroundTransparency = Open and 0.16 or 1,
+                    Position = GetPanelGrabBarPosition(TargetPosition, TargetSize),
                 }):Play()
                 SetAllActionButtonsTransparency(Open and 0 or 1, Instant)
             end
@@ -12686,6 +12978,9 @@ function Library:CreateWindow(WindowInfo)
 
         function Controller:SetVisible(Visible)
             Island.Visible = Visible == true
+            if not Island.Visible then
+                PanelGrabBar.Visible = false
+            end
             if not Island.Visible and ActionMenuOpen and SetActionMenuOpen then
                 SetActionMenuOpen(false, true)
             end
@@ -12749,9 +13044,9 @@ function Library:CreateWindow(WindowInfo)
             ClosingPanelFromBar = false
             PanelBarStartPosition = nil
             TweenService:Create(PanelGrabBar, TweenInfo.new(0.14, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
-                BackgroundTransparency = ActionMenuOpen and 0.42 or 1,
+                BackgroundTransparency = ActionMenuOpen and 0.16 or 1,
                 Position = PanelGrabBarPosition,
-                Size = UDim2.fromOffset(54, 4),
+                Size = UDim2.fromOffset(68, 5),
             }):Play()
         end
 
@@ -12763,6 +13058,11 @@ function Library:CreateWindow(WindowInfo)
             TweenService:Create(GlassLayer, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 BackgroundTransparency = math.max(0, GlassTransparency - 0.04),
             }):Play()
+            if LiquidHoverLayer then
+                TweenService:Create(LiquidHoverLayer, TweenInfo.new(0.18, Enum.EasingStyle.Sine), {
+                    BackgroundTransparency = 0.84,
+                }):Play()
+            end
         end)
         Island.MouseLeave:Connect(function()
             if ActionMenuOpen then
@@ -12778,6 +13078,28 @@ function Library:CreateWindow(WindowInfo)
                     BackgroundTransparency = math.clamp(GlassTransparency + (IsIdle and 0.05 or 0), 0, 1),
                 })
                 :Play()
+            if LiquidHoverLayer then
+                TweenService:Create(LiquidHoverLayer, TweenInfo.new(0.18, Enum.EasingStyle.Sine), {
+                    BackgroundTransparency = 1,
+                }):Play()
+            end
+        end)
+        Island.MouseMoved:Connect(function(X: number, Y: number)
+            if not LiquidHoverGradient or not Island.AbsoluteSize then
+                return
+            end
+
+            local Size = Island.AbsoluteSize
+            if Size.X <= 0 or Size.Y <= 0 then
+                return
+            end
+
+            local Offset = Vector2.new(
+                math.clamp(((X - Island.AbsolutePosition.X) / Size.X) - 0.5, -0.5, 0.5),
+                math.clamp(((Y - Island.AbsolutePosition.Y) / Size.Y) - 0.5, -0.5, 0.5)
+            )
+            LiquidHoverGradient.Offset = Offset
+            OutlineGradient.Rotation = 120 + (Offset.X * 70)
         end)
         Island.InputBegan:Connect(function(Input: InputObject)
             if not IsIslandPressInput(Input, Enum.UserInputState.Begin) then
@@ -12805,8 +13127,8 @@ function Library:CreateWindow(WindowInfo)
             PanelBarStartPosition = InputPosition2D(Input)
             PressToken += 1
             TweenService:Create(PanelGrabBar, TweenInfo.new(0.12, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
-                BackgroundTransparency = 0.18,
-                Size = UDim2.fromOffset(66, 5),
+                BackgroundTransparency = 0.04,
+                Size = UDim2.fromOffset(78, 6),
             }):Play()
         end)
         Library:GiveSignal(UserInputService.InputChanged:Connect(function(Input: InputObject)
@@ -12815,8 +13137,8 @@ function Library:CreateWindow(WindowInfo)
                 if Delta.Y < -4 then
                     local Pull = math.clamp(math.abs(Delta.Y) / PanelCloseThreshold, 0, 1)
                     TweenService:Create(PanelGrabBar, TweenInfo.new(0.06, Enum.EasingStyle.Linear), {
-                        BackgroundTransparency = 0.18 + (0.32 * (1 - Pull)),
-                        Size = UDim2.fromOffset(66 + (10 * Pull), 5),
+                        BackgroundTransparency = 0.04 + (0.32 * (1 - Pull)),
+                        Size = UDim2.fromOffset(78 + (10 * Pull), 6),
                     }):Play()
                 end
                 return
