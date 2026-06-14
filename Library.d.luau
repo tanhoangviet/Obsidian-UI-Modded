@@ -2089,6 +2089,7 @@ export type Library = {
             DynamicIslandScale: number?,
             DynamicIslandIdleScale: number?,
             DynamicIslandTopbarHeightScale: number?,
+            DynamicIslandTopOffset: number?,
             DynamicIslandMinHeight: number?,
             DynamicIslandMaxHeight: number?,
             DynamicIslandCornerRadius: (UDim | number)?,

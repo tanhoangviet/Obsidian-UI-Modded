@@ -672,10 +672,11 @@ local Templates = {
         DynamicIslandScale = 0.75,
         DynamicIslandIdleScale = 0.75,
         DynamicIslandTopbarHeightScale = 0.75,
+        DynamicIslandTopOffset = 4,
         DynamicIslandMinHeight = nil,
         DynamicIslandMaxHeight = nil,
         DynamicIslandCornerRadius = nil,
-        DynamicIslandIdleCornerRadius = 0,
+        DynamicIslandIdleCornerRadius = 7,
         DynamicIslandAssetSize = UDim2.fromOffset(18, 18),
         DynamicIslandLockIconSize = UDim2.fromOffset(13, 13),
         DynamicIslandFont = Font.fromEnum(Enum.Font.GothamMedium),
@@ -11163,11 +11164,12 @@ function Library:CreateWindow(WindowInfo)
                 TopbarHeight
             )
         end
+        local TopOffset = tonumber(WindowInfo.DynamicIslandTopOffset) or 4
         local ActivePosition = if UseTopbarHeight
-            then UDim2.new(0.5, 0, 0, TopbarY)
+            then UDim2.new(0.5, 0, 0, TopbarY + TopOffset)
             else (WindowInfo.DynamicIslandPosition or UDim2.new(0.5, 0, 0, 8))
         local IdlePosition = if UseTopbarHeight
-            then UDim2.new(0.5, 0, 0, TopbarY - math.floor(TopbarHeight * 0.42))
+            then UDim2.new(0.5, 0, 0, TopbarY + TopOffset - math.floor(TopbarHeight * 0.42))
             else (WindowInfo.DynamicIslandIdlePosition or UDim2.new(0.5, 0, 0, 2))
         local BaseTransparency = math.clamp(tonumber(WindowInfo.DynamicIslandTransparency) or 0, 0, 1)
         local IdleTransparency = math.clamp(tonumber(WindowInfo.DynamicIslandIdleTransparency) or 0.16, 0, 1)
@@ -11198,7 +11200,7 @@ function Library:CreateWindow(WindowInfo)
             return Default
         end
         local ActiveCornerRadius = ResolveIslandCornerRadius(WindowInfo.DynamicIslandCornerRadius, UDim.new(1, 0))
-        local IdleCornerRadius = ResolveIslandCornerRadius(WindowInfo.DynamicIslandIdleCornerRadius, UDim.new(0, 0))
+        local IdleCornerRadius = ResolveIslandCornerRadius(WindowInfo.DynamicIslandIdleCornerRadius, UDim.new(0, 7))
         local Island = New("TextButton", {
             Name = "DynamicIslandToggle",
             Active = true,
