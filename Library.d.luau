@@ -859,6 +859,7 @@ export type FloatingSpriteInfo = SpriteInfo & {
     ZIndex: number?,
     Parent: Instance?,
     ParentMode: "Floating" | "Window"?,
+    FollowWindow: boolean?,
 }
 
 export type FloatingSprite = {
@@ -876,6 +877,7 @@ export type FloatingSprite = {
     SetSize: (self: FloatingSprite, Size: UDim2) -> (),
     SetZIndex: (self: FloatingSprite, ZIndex: number) -> (),
     SetParent: (self: FloatingSprite, Parent: Instance) -> (),
+    AttachToWindow: (self: FloatingSprite, Window: Window?) -> (),
     BringToFront: (self: FloatingSprite) -> number,
     Destroy: (self: FloatingSprite) -> (),
 }
@@ -1708,6 +1710,9 @@ export type Loading = {
 }
 
 export type Window = {
+    Holder: TextButton,
+    MainFrame: TextButton,
+    ScreenGui: ScreenGui,
     IsSidebarCompacted: (self: Window) -> boolean,
     GetSidebarWidth: (self: Window) -> number,
     SetSidebarWidth: (self: Window, Width: number) -> (),

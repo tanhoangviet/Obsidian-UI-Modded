@@ -176,9 +176,9 @@ local FloatingArisu = Library:AddFloatingSprite({
     FrameCount = 8,
     Columns = 8,
     Fps = 12,
-    ParentMode = "Floating",
-    Position = UDim2.new(0.72, 0, 0, 86),
-    Size = UDim2.fromOffset(90, 90),
+    ParentMode = "Window",
+    Position = UDim2.new(1, -148, 0, 42),
+    Size = UDim2.fromOffset(58, 58),
     Visible = true,
     ZIndex = 50000,
 })

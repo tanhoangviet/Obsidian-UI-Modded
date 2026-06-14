@@ -2215,7 +2215,11 @@ function Library:AddFloatingSprite(Info)
 
     local ParentGui = Info.Parent
     if not ParentGui then
-        ParentGui = Info.ParentMode == "Window" and ScreenGui or DynamicIslandOverlayGui or FloatingSpritesGui
+        if Info.ParentMode == "Window" or Info.FollowWindow == true then
+            ParentGui = Library.Window and (Library.Window.Holder or Library.Window.MainFrame) or ScreenGui
+        else
+            ParentGui = DynamicIslandOverlayGui or FloatingSpritesGui
+        end
     end
 
     local Sprite = {
@@ -2309,6 +2313,14 @@ function Library:AddFloatingSprite(Info)
     function Sprite:SetParent(Parent: Instance)
         assert(typeof(Parent) == "Instance", "SetParent expects an Instance.")
         ImageObject.Parent = Parent
+    end
+
+    function Sprite:AttachToWindow(Window)
+        Window = Window or Library.Window
+        local WindowHolder = Window and (Window.Holder or Window.MainFrame)
+        if WindowHolder then
+            ImageObject.Parent = WindowHolder
+        end
     end
 
     function Sprite:BringToFront()
@@ -12359,6 +12371,23 @@ function Library:CreateWindow(WindowInfo)
             end
         end
 
+        local ClipDescendantsToken = 0
+        local function SetIslandClipDescendants(Enabled: boolean, DelayTime: number?)
+            ClipDescendantsToken += 1
+            local CurrentToken = ClipDescendantsToken
+
+            if DelayTime and DelayTime > 0 then
+                task.delay(DelayTime, function()
+                    if CurrentToken == ClipDescendantsToken and Island.Parent then
+                        Island.ClipsDescendants = Enabled == true
+                    end
+                end)
+                return
+            end
+
+            Island.ClipsDescendants = Enabled == true
+        end
+
         local function SetLiquidGlassCorner(CornerRadius: UDim, TweenTime: number?)
             for _, Corner in LiquidGlassCorners do
                 if Corner.Parent then
@@ -12543,6 +12572,7 @@ function Library:CreateWindow(WindowInfo)
                 return
             end
 
+            SetIslandClipDescendants(true)
             IsIdle = Idle == true
             ContentVisibilityToken += 1
             local CurrentContentVisibilityToken = ContentVisibilityToken
@@ -12731,6 +12761,12 @@ function Library:CreateWindow(WindowInfo)
             local TweenDirection = Open and Enum.EasingDirection.Out or Enum.EasingDirection.Out
             local TweenSpec = TweenInfo.new(TweenTime, TweenStyle, TweenDirection)
 
+            if Open then
+                SetIslandClipDescendants(false)
+            else
+                SetIslandClipDescendants(true, Instant and 0 or TweenTime + 0.05)
+            end
+
             local function ApplyInstant()
                 Island.Size = TargetSize
                 Island.Position = TargetPosition
@@ -12840,11 +12876,13 @@ function Library:CreateWindow(WindowInfo)
             elseif Instant then
                 ActionContainer.Visible = false
                 PanelGrabBar.Visible = false
+                SetIslandClipDescendants(true)
             else
                 task.delay(TweenTime + 0.04, function()
                     if CurrentActionMenuToken == ActionMenuToken and not ActionMenuOpen then
                         ActionContainer.Visible = false
                         PanelGrabBar.Visible = false
+                        SetIslandClipDescendants(true)
                     end
                 end)
             end
@@ -13667,7 +13705,11 @@ function Library:CreateWindow(WindowInfo)
     end
 
     --// Window Table \\--
-    local Window = {}
+    local Window = {
+        Holder = MainFrame,
+        MainFrame = MainFrame,
+        ScreenGui = ScreenGui,
+    }
 
     function Window:ChangeTitle(title)
         assert(typeof(title) == "string", "Expected string for title got: " .. typeof(title))
