@@ -11901,12 +11901,31 @@ function Library:CreateWindow(WindowInfo)
             Rotation = 0,
         })
 
-        local GlassLayer = New("Frame", {
-            BackgroundColor3 = "WhiteColor",
-            BackgroundTransparency = GlassTransparency,
+        local LiquidGlassCorners = {}
+        local GlassClipLayer = New("Frame", {
+            Name = "DynamicIslandGlassClip",
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            ClipsDescendants = true,
+            Position = UDim2.fromScale(0, 0),
             Size = UDim2.fromScale(1, 1),
             ZIndex = Island.ZIndex + 1,
             Parent = Island,
+        })
+        local GlassClipCorner = New("UICorner", {
+            CornerRadius = ActiveCornerRadius,
+            Parent = GlassClipLayer,
+        })
+        table.insert(Library.Corners, GlassClipCorner)
+        table.insert(LiquidGlassCorners, GlassClipCorner)
+
+        local GlassLayer = New("Frame", {
+            BackgroundColor3 = "WhiteColor",
+            BackgroundTransparency = GlassTransparency,
+            BorderSizePixel = 0,
+            Size = UDim2.fromScale(1, 1),
+            ZIndex = GlassClipLayer.ZIndex + 1,
+            Parent = GlassClipLayer,
         })
         local GlassCorner = New("UICorner", { CornerRadius = ActiveCornerRadius, Parent = GlassLayer })
         table.insert(Library.Corners, GlassCorner)
@@ -11929,9 +11948,10 @@ function Library:CreateWindow(WindowInfo)
         local ShineLayer = New("Frame", {
             BackgroundColor3 = "WhiteColor",
             BackgroundTransparency = 0.86,
+            BorderSizePixel = 0,
             Size = UDim2.fromScale(1, 1),
-            ZIndex = Island.ZIndex + 1,
-            Parent = Island,
+            ZIndex = GlassClipLayer.ZIndex + 2,
+            Parent = GlassClipLayer,
         })
         local ShineCorner = New("UICorner", { CornerRadius = ActiveCornerRadius, Parent = ShineLayer })
         table.insert(Library.Corners, ShineCorner)
@@ -11954,7 +11974,6 @@ function Library:CreateWindow(WindowInfo)
             }),
         })
 
-        local LiquidGlassCorners = {}
         local function AddLiquidGlassLayer(Info)
             if not LiquidGlassEnabled then
                 return nil
@@ -11966,8 +11985,8 @@ function Library:CreateWindow(WindowInfo)
                 BorderSizePixel = 0,
                 Position = Info.Position,
                 Size = Info.Size,
-                ZIndex = Island.ZIndex + 1,
-                Parent = Island,
+                ZIndex = GlassClipLayer.ZIndex + 3,
+                Parent = GlassClipLayer,
             })
             if Info.CornerRadius then
                 local Corner = New("UICorner", {
@@ -12141,8 +12160,8 @@ function Library:CreateWindow(WindowInfo)
                 BackgroundTransparency = 1,
                 Position = UDim2.fromOffset(2, 2),
                 Size = UDim2.new(1, -4, 1, -4),
-                ZIndex = Island.ZIndex + 1,
-                Parent = Island,
+                ZIndex = GlassClipLayer.ZIndex + 4,
+                Parent = GlassClipLayer,
             })
             LiquidSecondaryCorner = New("UICorner", {
                 CornerRadius = UDim.new(ActiveCornerRadius.Scale, math.max(0, ActiveCornerRadius.Offset - 2)),
