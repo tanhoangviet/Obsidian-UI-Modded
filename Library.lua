@@ -2821,10 +2821,159 @@ function Library:AddOutline(Frame: GuiObject, Info)
     return OutlineStroke, ShadowStroke
 end
 
+local function SafeSetInstanceProperty(Instance, Property: string, Value)
+    return pcall(function()
+        Instance[Property] = Value
+    end)
+end
+
+local function HasInstanceProperty(Instance, Property: string): boolean
+    return pcall(function()
+        local _ = Instance[Property]
+    end)
+end
+
+local function ResolveShadowColor(Color)
+    return GetSchemeValue(Color) or Color or Library.Scheme.DarkColor
+end
+
+function Library:SetShadowGlowColor(Shadow, Color)
+    if not Shadow then
+        return
+    end
+
+    local ResolvedColor = ResolveShadowColor(Color)
+    local RegistryProperty = nil
+    if SafeSetInstanceProperty(Shadow, "Color", ResolvedColor) then
+        RegistryProperty = "Color"
+    elseif SafeSetInstanceProperty(Shadow, "ImageColor3", ResolvedColor) then
+        RegistryProperty = "ImageColor3"
+    end
+
+    if typeof(Color) == "string" and RegistryProperty then
+        if not Library.Registry[Shadow] then
+            Library:AddToRegistry(Shadow, {})
+        end
+        Library.Registry[Shadow][RegistryProperty] = Color
+    end
+end
+
+function Library:SetShadowGlowTransparency(Shadow, Transparency: number)
+    if not Shadow then
+        return
+    end
+
+    Transparency = math.clamp(tonumber(Transparency) or 0, 0, 1)
+    if SafeSetInstanceProperty(Shadow, "Transparency", Transparency) then
+        return
+    end
+    SafeSetInstanceProperty(Shadow, "ImageTransparency", Transparency)
+end
+
+function Library:TweenShadowGlowTransparency(Shadow, TweenSpec: TweenInfo, Transparency: number)
+    if not Shadow then
+        return nil
+    end
+
+    Transparency = math.clamp(tonumber(Transparency) or 0, 0, 1)
+    local Goal = {}
+    if HasInstanceProperty(Shadow, "Transparency") then
+        Goal.Transparency = Transparency
+    elseif HasInstanceProperty(Shadow, "ImageTransparency") then
+        Goal.ImageTransparency = Transparency
+    end
+
+    if next(Goal) then
+        local Tween = TweenService:Create(Shadow, TweenSpec, Goal)
+        Tween:Play()
+        return Tween
+    end
+
+    Library:SetShadowGlowTransparency(Shadow, Transparency)
+    return nil
+end
+
+function Library:SetUICornerRadii(Corner: UICorner, Radius: UDim, Radii)
+    if not Corner then
+        return
+    end
+
+    SafeSetInstanceProperty(Corner, "CornerRadius", Radius)
+    Radii = Radii or {}
+    SafeSetInstanceProperty(Corner, "TopLeftRadius", Radii.TopLeftRadius or Radii.TopLeft or Radius)
+    SafeSetInstanceProperty(Corner, "TopRightRadius", Radii.TopRightRadius or Radii.TopRight or Radius)
+    SafeSetInstanceProperty(Corner, "BottomRightRadius", Radii.BottomRightRadius or Radii.BottomRight or Radius)
+    SafeSetInstanceProperty(Corner, "BottomLeftRadius", Radii.BottomLeftRadius or Radii.BottomLeft or Radius)
+end
+
+function Library:TweenUICornerRadii(Corner: UICorner, TweenSpec: TweenInfo, Radius: UDim, Radii)
+    if not Corner then
+        return nil
+    end
+
+    local Goal = {
+        CornerRadius = Radius,
+    }
+    Radii = Radii or {}
+    if HasInstanceProperty(Corner, "TopLeftRadius") then
+        Goal.TopLeftRadius = Radii.TopLeftRadius or Radii.TopLeft or Radius
+        Goal.TopRightRadius = Radii.TopRightRadius or Radii.TopRight or Radius
+        Goal.BottomRightRadius = Radii.BottomRightRadius or Radii.BottomRight or Radius
+        Goal.BottomLeftRadius = Radii.BottomLeftRadius or Radii.BottomLeft or Radius
+    end
+
+    local Tween = TweenService:Create(Corner, TweenSpec, Goal)
+    Tween:Play()
+    return Tween
+end
+
+function Library:AddNativeShadow(Frame: GuiObject, Info)
+    Info = Info or {}
+    if Info.Enabled == false then
+        return nil
+    end
+
+    local Success, Shadow = pcall(function()
+        return Instance.new("UIShadow")
+    end)
+    if not Success or not Shadow then
+        return nil
+    end
+
+    local BlurRadius = math.max(0, tonumber(Info.BlurRadius or Info.Size or Info.Thickness or Info.Padding) or 18)
+    local Offset = typeof(Info.Offset) == "Vector2" and Info.Offset
+        or Vector2.new(tonumber(Info.OffsetX) or 0, tonumber(Info.OffsetY) or 0)
+    local Spread = Info.Spread
+    if typeof(Spread) == "Vector2" then
+        Spread = UDim2.fromOffset(Spread.X, Spread.Y)
+    elseif typeof(Spread) ~= "UDim2" then
+        local SpreadOffset = math.max(0, tonumber(Spread) or math.floor(BlurRadius * 0.28))
+        Spread = UDim2.fromOffset(SpreadOffset, SpreadOffset)
+    end
+
+    Shadow.Name = Info.Name or "NativeShadow"
+    SafeSetInstanceProperty(Shadow, "Enabled", true)
+    SafeSetInstanceProperty(Shadow, "BlurRadius", UDim.new(0, BlurRadius))
+    SafeSetInstanceProperty(Shadow, "Offset", UDim2.fromOffset(Offset.X, Offset.Y))
+    SafeSetInstanceProperty(Shadow, "Spread", Spread)
+    Library:SetShadowGlowColor(Shadow, Info.Color or "DarkColor")
+    Library:SetShadowGlowTransparency(Shadow, Info.Transparency or 0.62)
+    Shadow.Parent = Frame
+
+    return Shadow, function() end
+end
+
 function Library:AddShadowGlow(Frame: GuiObject, Info)
     Info = Info or {}
     if Info.Enabled == false then
         return nil
+    end
+
+    if Info.Native ~= false and Info.Image == nil then
+        local NativeShadow, SyncNativeShadow = Library:AddNativeShadow(Frame, Info)
+        if NativeShadow then
+            return NativeShadow, SyncNativeShadow
+        end
     end
 
     local Padding = math.max(0, tonumber(Info.Size or Info.Thickness or Info.Padding) or 18)
@@ -12396,11 +12545,13 @@ function Library:CreateWindow(WindowInfo)
                         or CornerRadius
 
                     if TweenTime and TweenTime > 0 then
-                        TweenService:Create(Corner, TweenInfo.new(TweenTime, Enum.EasingStyle.Sine), {
-                            CornerRadius = TargetRadius,
-                        }):Play()
+                        Library:TweenUICornerRadii(
+                            Corner,
+                            TweenInfo.new(TweenTime, Enum.EasingStyle.Sine),
+                            TargetRadius
+                        )
                     else
-                        Corner.CornerRadius = TargetRadius
+                        Library:SetUICornerRadii(Corner, TargetRadius)
                     end
                 end
             end
@@ -12607,16 +12758,16 @@ function Library:CreateWindow(WindowInfo)
                 OutlineStroke.Transparency = TargetBorderTransparency
                 OuterGlowStroke.Transparency = TargetGlowTransparency
                 if IslandImageGlow then
-                    IslandImageGlow.ImageTransparency = TargetImageGlowTransparency
+                    Library:SetShadowGlowTransparency(IslandImageGlow, TargetImageGlowTransparency)
                 end
                 if IslandShadow then
-                    IslandShadow.ImageTransparency = TargetShadowTransparency
+                    Library:SetShadowGlowTransparency(IslandShadow, TargetShadowTransparency)
                 end
                 GlassLayer.BackgroundTransparency = TargetGlassTransparency
                 ShineLayer.BackgroundTransparency = TargetShineTransparency
-                IslandCorner.CornerRadius = TargetCornerRadius
-                GlassCorner.CornerRadius = TargetCornerRadius
-                ShineCorner.CornerRadius = TargetCornerRadius
+                Library:SetUICornerRadii(IslandCorner, TargetCornerRadius)
+                Library:SetUICornerRadii(GlassCorner, TargetCornerRadius)
+                Library:SetUICornerRadii(ShineCorner, TargetCornerRadius)
                 SetLiquidGlassCorner(TargetCornerRadius, 0)
                 TitleLabel.TextTransparency = TargetTitleTransparency
                 StatusLabel.TextTransparency = TargetStatusTransparency
@@ -12642,22 +12793,18 @@ function Library:CreateWindow(WindowInfo)
                 })
                 :Play()
             if IslandImageGlow then
-                TweenService
-                    :Create(
-                        IslandImageGlow,
-                        TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-                        {
-                            ImageTransparency = TargetImageGlowTransparency,
-                        }
-                    )
-                    :Play()
+                Library:TweenShadowGlowTransparency(
+                    IslandImageGlow,
+                    TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                    TargetImageGlowTransparency
+                )
             end
             if IslandShadow then
-                TweenService
-                    :Create(IslandShadow, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                        ImageTransparency = TargetShadowTransparency,
-                    })
-                    :Play()
+                Library:TweenShadowGlowTransparency(
+                    IslandShadow,
+                    TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                    TargetShadowTransparency
+                )
             end
             TweenService
                 :Create(GlassLayer, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
@@ -12669,21 +12816,10 @@ function Library:CreateWindow(WindowInfo)
                     BackgroundTransparency = TargetShineTransparency,
                 })
                 :Play()
-            TweenService
-                :Create(IslandCorner, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                    CornerRadius = TargetCornerRadius,
-                })
-                :Play()
-            TweenService
-                :Create(GlassCorner, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                    CornerRadius = TargetCornerRadius,
-                })
-                :Play()
-            TweenService
-                :Create(ShineCorner, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                    CornerRadius = TargetCornerRadius,
-                })
-                :Play()
+            local CornerTweenInfo = TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+            Library:TweenUICornerRadii(IslandCorner, CornerTweenInfo, TargetCornerRadius)
+            Library:TweenUICornerRadii(GlassCorner, CornerTweenInfo, TargetCornerRadius)
+            Library:TweenUICornerRadii(ShineCorner, CornerTweenInfo, TargetCornerRadius)
             SetLiquidGlassCorner(TargetCornerRadius, TweenTime)
             TweenService
                 :Create(TitleLabel, TweenInfo.new(TweenTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
@@ -12774,16 +12910,16 @@ function Library:CreateWindow(WindowInfo)
                 OutlineStroke.Transparency = Open and 0.01 or (Library.Toggled and 0.01 or 0.04)
                 OuterGlowStroke.Transparency = TargetGlowTransparency
                 if IslandImageGlow then
-                    IslandImageGlow.ImageTransparency = TargetImageGlowTransparency
+                    Library:SetShadowGlowTransparency(IslandImageGlow, TargetImageGlowTransparency)
                 end
                 if IslandShadow then
-                    IslandShadow.ImageTransparency = TargetShadowTransparency
+                    Library:SetShadowGlowTransparency(IslandShadow, TargetShadowTransparency)
                 end
                 GlassLayer.BackgroundTransparency = TargetGlassTransparency
                 ShineLayer.BackgroundTransparency = TargetShineTransparency
-                IslandCorner.CornerRadius = TargetCornerRadius
-                GlassCorner.CornerRadius = TargetCornerRadius
-                ShineCorner.CornerRadius = TargetCornerRadius
+                Library:SetUICornerRadii(IslandCorner, TargetCornerRadius)
+                Library:SetUICornerRadii(GlassCorner, TargetCornerRadius)
+                Library:SetUICornerRadii(ShineCorner, TargetCornerRadius)
                 SetLiquidGlassCorner(TargetCornerRadius, 0)
                 AssetHolder.Position = Open and ActionAssetPosition or NormalAssetPosition
                 TextHolder.Position = Open and ActionTextPosition or NormalTextPosition
@@ -12815,14 +12951,18 @@ function Library:CreateWindow(WindowInfo)
                     Transparency = TargetGlowTransparency,
                 }):Play()
                 if IslandImageGlow then
-                    TweenService:Create(IslandImageGlow, TweenInfo.new(TweenTime, Enum.EasingStyle.Sine), {
-                        ImageTransparency = TargetImageGlowTransparency,
-                    }):Play()
+                    Library:TweenShadowGlowTransparency(
+                        IslandImageGlow,
+                        TweenInfo.new(TweenTime, Enum.EasingStyle.Sine),
+                        TargetImageGlowTransparency
+                    )
                 end
                 if IslandShadow then
-                    TweenService:Create(IslandShadow, TweenInfo.new(TweenTime, Enum.EasingStyle.Sine), {
-                        ImageTransparency = TargetShadowTransparency,
-                    }):Play()
+                    Library:TweenShadowGlowTransparency(
+                        IslandShadow,
+                        TweenInfo.new(TweenTime, Enum.EasingStyle.Sine),
+                        TargetShadowTransparency
+                    )
                 end
                 TweenService:Create(GlassLayer, TweenInfo.new(TweenTime, Enum.EasingStyle.Sine), {
                     BackgroundTransparency = TargetGlassTransparency,
@@ -12830,15 +12970,10 @@ function Library:CreateWindow(WindowInfo)
                 TweenService:Create(ShineLayer, TweenInfo.new(TweenTime, Enum.EasingStyle.Sine), {
                     BackgroundTransparency = TargetShineTransparency,
                 }):Play()
-                TweenService:Create(IslandCorner, TweenInfo.new(TweenTime, Enum.EasingStyle.Sine), {
-                    CornerRadius = TargetCornerRadius,
-                }):Play()
-                TweenService:Create(GlassCorner, TweenInfo.new(TweenTime, Enum.EasingStyle.Sine), {
-                    CornerRadius = TargetCornerRadius,
-                }):Play()
-                TweenService:Create(ShineCorner, TweenInfo.new(TweenTime, Enum.EasingStyle.Sine), {
-                    CornerRadius = TargetCornerRadius,
-                }):Play()
+                local CornerTweenInfo = TweenInfo.new(TweenTime, Enum.EasingStyle.Sine)
+                Library:TweenUICornerRadii(IslandCorner, CornerTweenInfo, TargetCornerRadius)
+                Library:TweenUICornerRadii(GlassCorner, CornerTweenInfo, TargetCornerRadius)
+                Library:TweenUICornerRadii(ShineCorner, CornerTweenInfo, TargetCornerRadius)
                 SetLiquidGlassCorner(TargetCornerRadius, TweenTime)
                 TweenService:Create(AssetHolder, TweenInfo.new(TweenTime, Enum.EasingStyle.Quint), {
                     Position = Open and ActionAssetPosition or NormalAssetPosition,
@@ -13869,19 +14004,13 @@ function Library:CreateWindow(WindowInfo)
         if Info.ShadowColor then
             MainShadowStroke.Color = GetSchemeValue(Info.ShadowColor) or Info.ShadowColor
             if MainDropShadow then
-                MainDropShadow.ImageColor3 = GetSchemeValue(Info.ShadowColor) or Info.ShadowColor
+                Library:SetShadowGlowColor(MainDropShadow, Info.ShadowColor)
             end
             if typeof(Info.ShadowColor) == "string" then
                 if not Library.Registry[MainShadowStroke] then
                     Library:AddToRegistry(MainShadowStroke, {})
                 end
                 Library.Registry[MainShadowStroke].Color = Info.ShadowColor
-                if MainDropShadow then
-                    if not Library.Registry[MainDropShadow] then
-                        Library:AddToRegistry(MainDropShadow, {})
-                    end
-                    Library.Registry[MainDropShadow].ImageColor3 = Info.ShadowColor
-                end
             end
         end
         if Info.ShadowThickness then
@@ -13890,20 +14019,14 @@ function Library:CreateWindow(WindowInfo)
         if Info.ShadowTransparency then
             MainShadowStroke.Transparency = Info.ShadowTransparency
             if MainDropShadow then
-                MainDropShadow.ImageTransparency = math.clamp(Info.ShadowTransparency, 0, 1)
+                Library:SetShadowGlowTransparency(MainDropShadow, Info.ShadowTransparency)
             end
         end
         if MainWindowGlow and Info.GlowColor then
-            MainWindowGlow.ImageColor3 = GetSchemeValue(Info.GlowColor) or Info.GlowColor
-            if typeof(Info.GlowColor) == "string" then
-                if not Library.Registry[MainWindowGlow] then
-                    Library:AddToRegistry(MainWindowGlow, {})
-                end
-                Library.Registry[MainWindowGlow].ImageColor3 = Info.GlowColor
-            end
+            Library:SetShadowGlowColor(MainWindowGlow, Info.GlowColor)
         end
         if MainWindowGlow and Info.GlowTransparency then
-            MainWindowGlow.ImageTransparency = math.clamp(Info.GlowTransparency, 0, 1)
+            Library:SetShadowGlowTransparency(MainWindowGlow, Info.GlowTransparency)
         end
     end
 

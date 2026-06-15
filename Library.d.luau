@@ -1925,12 +1925,15 @@ export type Library = {
         Frame: GuiObject,
         Info: {
             Enabled: boolean?,
+            Native: boolean?,
             Name: string?,
             Color: (Color3 | string)?,
             Transparency: number?,
             Size: number?,
             Thickness: number?,
             Padding: number?,
+            BlurRadius: number?,
+            Spread: (number | Vector2 | UDim2)?,
             Offset: Vector2?,
             OffsetX: number?,
             OffsetY: number?,
@@ -1944,7 +1947,64 @@ export type Library = {
             ZIndex: number?,
             Parent: Instance?,
         }?
-    ) -> (ImageLabel?, (() -> ())?),
+    ) -> (Instance?, (() -> ())?),
+    AddNativeShadow: (
+        self: Library,
+        Frame: GuiObject,
+        Info: {
+            Enabled: boolean?,
+            Name: string?,
+            Color: (Color3 | string)?,
+            Transparency: number?,
+            Size: number?,
+            Thickness: number?,
+            Padding: number?,
+            BlurRadius: number?,
+            Spread: (number | Vector2 | UDim2)?,
+            Offset: Vector2?,
+            OffsetX: number?,
+            OffsetY: number?,
+        }?
+    ) -> (Instance?, (() -> ())?),
+    SetShadowGlowColor: (self: Library, Shadow: Instance?, Color: (Color3 | string)?) -> (),
+    SetShadowGlowTransparency: (self: Library, Shadow: Instance?, Transparency: number) -> (),
+    TweenShadowGlowTransparency: (
+        self: Library,
+        Shadow: Instance?,
+        TweenSpec: TweenInfo,
+        Transparency: number
+    ) -> Tween?,
+    SetUICornerRadii: (
+        self: Library,
+        Corner: UICorner,
+        Radius: UDim,
+        Radii: {
+            TopLeftRadius: UDim?,
+            TopRightRadius: UDim?,
+            BottomRightRadius: UDim?,
+            BottomLeftRadius: UDim?,
+            TopLeft: UDim?,
+            TopRight: UDim?,
+            BottomRight: UDim?,
+            BottomLeft: UDim?,
+        }?
+    ) -> (),
+    TweenUICornerRadii: (
+        self: Library,
+        Corner: UICorner,
+        TweenSpec: TweenInfo,
+        Radius: UDim,
+        Radii: {
+            TopLeftRadius: UDim?,
+            TopRightRadius: UDim?,
+            BottomRightRadius: UDim?,
+            BottomLeftRadius: UDim?,
+            TopLeft: UDim?,
+            TopRight: UDim?,
+            BottomRight: UDim?,
+            BottomLeft: UDim?,
+        }?
+    ) -> Tween?,
     AddGradient: (
         self: Library,
         Frame: GuiObject,
