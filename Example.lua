@@ -74,6 +74,10 @@ local Window = Library:CreateWindow({
     BorderThickness = 1.5,
     --TabStyle = "Card",
     TabsMode = "Sidebar", -- can change between "Sidebar" And "Topbar"
+    SideBarAllowBeta = true,
+    SideBarDockThreshold = 54,
+    SideBarDockCenterPage = true,
+    SideBarDockHandleSize = UDim2.fromOffset(20, 80),
     KeybindMenuWidth = 360,
     KeybindMenuMaxHeight = 240,
     FullscreenBackground = true,
@@ -1301,6 +1305,28 @@ MenuGroup:AddSlider("UICornerSlider", {
     Rounding = 0,
     Callback = function(value)
         Window:SetCornerRadius(value)
+    end,
+})
+
+MenuGroup:AddDivider()
+MenuGroup:AddButton({
+    Text = "Dock icon sidebar beta",
+    Icon = "panel-left-open",
+    Callback = function()
+        if not Window:SetSideBarDocked(true, "Left") then
+            Library:NotifyWarning({
+                Title = "Sidebar beta",
+                Description = "Every visible tab needs an icon before SideBarAllowBeta can dock.",
+                Time = 4,
+            })
+        end
+    end,
+})
+MenuGroup:AddButton({
+    Text = "Undock sidebar beta",
+    Icon = "panel-left-close",
+    Callback = function()
+        Window:SetSideBarDocked(false)
     end,
 })
 
