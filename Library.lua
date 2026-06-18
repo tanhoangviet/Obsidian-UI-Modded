@@ -712,6 +712,7 @@ local Templates = {
         DynamicIslandGlassTransparency = 0.88,
         DynamicIslandLiquidGlass = true,
         DynamicIslandLiquidGlassIntensity = 1,
+        DynamicIslandGlassStyle = "iOS", -- iOS, Clean, Legacy
         DynamicIslandBorderThickness = 1.35,
         DynamicIslandShadow = true,
         DynamicIslandShadowColor = "DarkColor",
@@ -11785,6 +11786,10 @@ function Library:CreateWindow(WindowInfo)
             math.clamp(tonumber(WindowInfo.DynamicIslandShadowTransparency) or 0.5, 0, 1)
         local LiquidGlassEnabled = WindowInfo.DynamicIslandLiquidGlass ~= false
         local LiquidGlassIntensity = math.clamp(tonumber(WindowInfo.DynamicIslandLiquidGlassIntensity) or 1, 0, 1.5)
+        local DynamicIslandGlassStyle = tostring(WindowInfo.DynamicIslandGlassStyle or "iOS"):gsub("%s+", ""):lower()
+        local LegacyGlassStyle = DynamicIslandGlassStyle == "legacy"
+        local CleanGlassStyle = DynamicIslandGlassStyle == "clean"
+        local IOSGlassStyle = not LegacyGlassStyle and not CleanGlassStyle
         local HideContentWhenIdle = WindowInfo.DynamicIslandHideContentWhenIdle ~= false
         local GradientAnimationEnabled = WindowInfo.DynamicIslandGradientAnimation ~= false
         local GradientAnimationSpeed = math.max(1.2, tonumber(WindowInfo.DynamicIslandGradientAnimationSpeed) or 2.8)
@@ -11921,7 +11926,7 @@ function Library:CreateWindow(WindowInfo)
 
         local GlassLayer = New("Frame", {
             BackgroundColor3 = "WhiteColor",
-            BackgroundTransparency = GlassTransparency,
+            BackgroundTransparency = IOSGlassStyle and math.clamp(GlassTransparency - 0.04, 0, 1) or GlassTransparency,
             BorderSizePixel = 0,
             Size = UDim2.fromScale(1, 1),
             ZIndex = GlassClipLayer.ZIndex + 1,
@@ -11939,9 +11944,9 @@ function Library:CreateWindow(WindowInfo)
             end,
             Rotation = 18,
             Transparency = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 0.62),
-                NumberSequenceKeypoint.new(0.5, 0.92),
-                NumberSequenceKeypoint.new(1, 0.72),
+                NumberSequenceKeypoint.new(0, IOSGlassStyle and 0.7 or 0.62),
+                NumberSequenceKeypoint.new(0.46, IOSGlassStyle and 0.94 or 0.92),
+                NumberSequenceKeypoint.new(1, IOSGlassStyle and 0.78 or 0.72),
             }),
         })
 
@@ -11967,9 +11972,9 @@ function Library:CreateWindow(WindowInfo)
             Rotation = 28,
             Transparency = NumberSequence.new({
                 NumberSequenceKeypoint.new(0, 1),
-                NumberSequenceKeypoint.new(0.42, 1),
-                NumberSequenceKeypoint.new(0.5, 0.58),
-                NumberSequenceKeypoint.new(0.58, 1),
+                NumberSequenceKeypoint.new(0.36, 1),
+                NumberSequenceKeypoint.new(0.5, IOSGlassStyle and 0.7 or 0.58),
+                NumberSequenceKeypoint.new(0.64, 1),
                 NumberSequenceKeypoint.new(1, 1),
             }),
         })
@@ -12004,12 +12009,15 @@ function Library:CreateWindow(WindowInfo)
             return Layer
         end
 
-        local LiquidEdgeTransparency = math.clamp(0.78 - (LiquidGlassIntensity * 0.1), 0.58, 0.9)
         AddLiquidGlassLayer({
             Color = "WhiteColor",
             Position = UDim2.fromScale(0, 0),
             Size = UDim2.fromScale(1, 1),
-            Transparency = math.clamp(0.91 - (LiquidGlassIntensity * 0.04), 0.82, 0.96),
+            Transparency = math.clamp(
+                (IOSGlassStyle and 0.94 or 0.91) - (LiquidGlassIntensity * (IOSGlassStyle and 0.025 or 0.04)),
+                0.84,
+                0.97
+            ),
             CornerRadius = ActiveCornerRadius,
             Gradient = {
                 Color = function()
@@ -12019,11 +12027,11 @@ function Library:CreateWindow(WindowInfo)
                         ColorSequenceKeypoint.new(1, Library:GetBetterColor(Library.Scheme.MainColor, 26)),
                     })
                 end,
-                Rotation = 18,
+                Rotation = IOSGlassStyle and 34 or 18,
                 Transparency = NumberSequence.new({
-                    NumberSequenceKeypoint.new(0, 0.78),
-                    NumberSequenceKeypoint.new(0.5, 0.92),
-                    NumberSequenceKeypoint.new(1, 0.84),
+                    NumberSequenceKeypoint.new(0, IOSGlassStyle and 0.86 or 0.78),
+                    NumberSequenceKeypoint.new(0.48, IOSGlassStyle and 0.95 or 0.92),
+                    NumberSequenceKeypoint.new(1, IOSGlassStyle and 0.88 or 0.84),
                 }),
             },
         })
@@ -12031,7 +12039,7 @@ function Library:CreateWindow(WindowInfo)
             Color = "WhiteColor",
             Position = UDim2.fromOffset(3, 1),
             Size = UDim2.new(1, -6, 0, math.max(8, math.floor(TopbarHeight * 0.28))),
-            Transparency = math.clamp(0.72 - (LiquidGlassIntensity * 0.08), 0.58, 0.84),
+            Transparency = math.clamp(0.82 - (LiquidGlassIntensity * 0.045), 0.7, 0.9),
             CornerRadius = ActiveCornerRadius,
             Gradient = {
                 Color = function()
@@ -12043,8 +12051,8 @@ function Library:CreateWindow(WindowInfo)
                 end,
                 Rotation = 90,
                 Transparency = NumberSequence.new({
-                    NumberSequenceKeypoint.new(0, 0.28),
-                    NumberSequenceKeypoint.new(0.45, 0.74),
+                    NumberSequenceKeypoint.new(0, IOSGlassStyle and 0.48 or 0.28),
+                    NumberSequenceKeypoint.new(0.45, IOSGlassStyle and 0.84 or 0.74),
                     NumberSequenceKeypoint.new(1, 1),
                 }),
             },
@@ -12053,7 +12061,7 @@ function Library:CreateWindow(WindowInfo)
             Color = "DarkColor",
             Position = UDim2.new(0, 3, 1, -math.max(8, math.floor(TopbarHeight * 0.28))),
             Size = UDim2.new(1, -6, 0, math.max(8, math.floor(TopbarHeight * 0.28))),
-            Transparency = 0.88,
+            Transparency = IOSGlassStyle and 0.94 or 0.88,
             CornerRadius = ActiveCornerRadius,
             Gradient = {
                 Color = function()
@@ -12073,7 +12081,7 @@ function Library:CreateWindow(WindowInfo)
         AddLiquidGlassLayer({
             Position = UDim2.fromOffset(4, 2),
             Size = UDim2.new(1, -8, 0, math.max(3, math.floor(TopbarHeight * 0.18))),
-            Transparency = math.clamp(0.82 - (LiquidGlassIntensity * 0.08), 0.62, 0.9),
+            Transparency = math.clamp(0.88 - (LiquidGlassIntensity * 0.04), 0.76, 0.94),
             CornerRadius = UDim.new(1, 0),
             SyncCorner = false,
             Gradient = {
@@ -12092,43 +12100,46 @@ function Library:CreateWindow(WindowInfo)
                 }),
             },
         })
-        AddLiquidGlassLayer({
-            Color = "DarkColor",
-            Position = UDim2.new(0, 5, 1, -math.max(5, math.floor(TopbarHeight * 0.2))),
-            Size = UDim2.new(1, -10, 0, math.max(5, math.floor(TopbarHeight * 0.2))),
-            Transparency = 0.9,
-            CornerRadius = UDim.new(1, 0),
-            SyncCorner = false,
-            Gradient = {
-                Color = function()
-                    return ColorSequence.new({
-                        ColorSequenceKeypoint.new(0, Library.Scheme.AccentColor),
-                        ColorSequenceKeypoint.new(1, Library.Scheme.DarkColor),
-                    })
-                end,
-                Rotation = 90,
-                Transparency = NumberSequence.new({
-                    NumberSequenceKeypoint.new(0, 0.92),
-                    NumberSequenceKeypoint.new(1, 0.5),
-                }),
-            },
-        })
-        AddLiquidGlassLayer({
-            Color = Color3.fromRGB(95, 238, 255),
-            Position = UDim2.fromOffset(2, 4),
-            Size = UDim2.new(0, math.max(1, math.floor(2 * LiquidGlassIntensity)), 1, -8),
-            Transparency = LiquidEdgeTransparency,
-            CornerRadius = UDim.new(1, 0),
-            SyncCorner = false,
-        })
-        AddLiquidGlassLayer({
-            Color = Color3.fromRGB(255, 106, 232),
-            Position = UDim2.new(1, -math.max(4, math.floor(4 * LiquidGlassIntensity)), 0, 4),
-            Size = UDim2.new(0, math.max(1, math.floor(2 * LiquidGlassIntensity)), 1, -8),
-            Transparency = math.clamp(LiquidEdgeTransparency + 0.04, 0, 1),
-            CornerRadius = UDim.new(1, 0),
-            SyncCorner = false,
-        })
+        if LegacyGlassStyle then
+            local LiquidEdgeTransparency = math.clamp(0.78 - (LiquidGlassIntensity * 0.1), 0.58, 0.9)
+            AddLiquidGlassLayer({
+                Color = "DarkColor",
+                Position = UDim2.new(0, 5, 1, -math.max(5, math.floor(TopbarHeight * 0.2))),
+                Size = UDim2.new(1, -10, 0, math.max(5, math.floor(TopbarHeight * 0.2))),
+                Transparency = 0.9,
+                CornerRadius = UDim.new(1, 0),
+                SyncCorner = false,
+                Gradient = {
+                    Color = function()
+                        return ColorSequence.new({
+                            ColorSequenceKeypoint.new(0, Library.Scheme.AccentColor),
+                            ColorSequenceKeypoint.new(1, Library.Scheme.DarkColor),
+                        })
+                    end,
+                    Rotation = 90,
+                    Transparency = NumberSequence.new({
+                        NumberSequenceKeypoint.new(0, 0.92),
+                        NumberSequenceKeypoint.new(1, 0.5),
+                    }),
+                },
+            })
+            AddLiquidGlassLayer({
+                Color = Color3.fromRGB(95, 238, 255),
+                Position = UDim2.fromOffset(2, 4),
+                Size = UDim2.new(0, math.max(1, math.floor(2 * LiquidGlassIntensity)), 1, -8),
+                Transparency = LiquidEdgeTransparency,
+                CornerRadius = UDim.new(1, 0),
+                SyncCorner = false,
+            })
+            AddLiquidGlassLayer({
+                Color = Color3.fromRGB(255, 106, 232),
+                Position = UDim2.new(1, -math.max(4, math.floor(4 * LiquidGlassIntensity)), 0, 4),
+                Size = UDim2.new(0, math.max(1, math.floor(2 * LiquidGlassIntensity)), 1, -8),
+                Transparency = math.clamp(LiquidEdgeTransparency + 0.04, 0, 1),
+                CornerRadius = UDim.new(1, 0),
+                SyncCorner = false,
+            })
+        end
         local LiquidHoverLayer = AddLiquidGlassLayer({
             Color = "WhiteColor",
             Position = UDim2.fromScale(0, 0),
@@ -12768,7 +12779,7 @@ function Library:CreateWindow(WindowInfo)
             local TargetStatusTransparency = IsIdle and 1 or 0.45
             local TargetIconTransparency = IsIdle and 1 or 0
             local TargetLockTransparency = IsIdle and 1 or (Library.CantDragForced and 0.04 or 0.18)
-            local TweenTime = Instant and 0 or (IsIdle and 0.28 or 0.2)
+            local TweenTime = Instant and 0 or (IsIdle and 0.34 or 0.24)
 
             if Instant then
                 Island.Size = TargetSize
@@ -12911,9 +12922,9 @@ function Library:CreateWindow(WindowInfo)
             local TargetGlassTransparency = Open and math.max(0, GlassTransparency - 0.05) or GlassTransparency
             local TargetShineTransparency = Open and 0.78 or 0.86
             local TargetCornerRadius = Open and PanelCornerRadius or ActiveCornerRadius
-            local TweenTime = Instant and 0 or (Open and 0.34 or 0.24)
-            local TweenStyle = Open and Enum.EasingStyle.Back or Enum.EasingStyle.Quint
-            local TweenDirection = Open and Enum.EasingDirection.Out or Enum.EasingDirection.Out
+            local TweenTime = Instant and 0 or (Open and 0.36 or 0.28)
+            local TweenStyle = Enum.EasingStyle.Quint
+            local TweenDirection = Enum.EasingDirection.Out
             local TweenSpec = TweenInfo.new(TweenTime, TweenStyle, TweenDirection)
 
             if Open then
@@ -14794,6 +14805,7 @@ function Library:CreateWindow(WindowInfo)
                 or Info.Optimize == true
                 or StartCollapsed
             local OptimizeEnabled = OptimizeAllowed and OptimizeRequested
+            local ButtonCornerRadius = 0
 
             local BoxHolder = New("Frame", {
                 AutomaticSize = Enum.AutomaticSize.Y,
@@ -14818,6 +14830,7 @@ function Library:CreateWindow(WindowInfo)
             do
                 TabboxHolder = New("Frame", {
                     BackgroundColor3 = "BackgroundColor",
+                    ClipsDescendants = true,
                     Size = UDim2.fromScale(1, 0),
                     Visible = Info.Visible ~= false,
                     Parent = BoxHolder,
@@ -14933,7 +14946,7 @@ function Library:CreateWindow(WindowInfo)
                 table.insert(
                     Library.Corners,
                     New("UICorner", {
-                        CornerRadius = UDim.new(0, WindowInfo.CornerRadius),
+                        CornerRadius = UDim.new(0, ButtonCornerRadius),
                         Parent = Button,
                     })
                 )
@@ -14942,8 +14955,8 @@ function Library:CreateWindow(WindowInfo)
                     Name = "BottomCover",
                     BackgroundColor3 = "MainColor",
                     BorderSizePixel = 0,
-                    Position = UDim2.new(0, 0, 1, -WindowInfo.CornerRadius),
-                    Size = UDim2.new(1, 0, 0, WindowInfo.CornerRadius),
+                    Position = UDim2.new(0, 0, 1, -ButtonCornerRadius),
+                    Size = UDim2.new(1, 0, 0, ButtonCornerRadius),
                     Parent = Button,
                 })
 
@@ -14952,7 +14965,7 @@ function Library:CreateWindow(WindowInfo)
                     BackgroundColor3 = "MainColor",
                     BorderSizePixel = 0,
                     Position = UDim2.new(0, 0, 0, 0),
-                    Size = UDim2.new(0, WindowInfo.CornerRadius, 1, 0),
+                    Size = UDim2.new(0, ButtonCornerRadius, 1, 0),
                     Visible = false,
                     Parent = Button,
                 })
@@ -14963,7 +14976,7 @@ function Library:CreateWindow(WindowInfo)
                     BackgroundColor3 = "MainColor",
                     BorderSizePixel = 0,
                     Position = UDim2.new(1, 0, 0, 0),
-                    Size = UDim2.new(0, WindowInfo.CornerRadius, 1, 0),
+                    Size = UDim2.new(0, ButtonCornerRadius, 1, 0),
                     Visible = false,
                     Parent = Button,
                 })
@@ -15104,14 +15117,15 @@ function Library:CreateWindow(WindowInfo)
                 end
 
                 function Tab:UpdateCorners()
-                    LeftCover.Visible = TabIndex ~= 1
-                    RightCover.Visible = TabIndex ~= TotalButtons
+                    BottomCover.Visible = false
+                    LeftCover.Visible = false
+                    RightCover.Visible = false
 
-                    BottomCover.Position = UDim2.new(0, 0, 1, -WindowInfo.CornerRadius)
-                    BottomCover.Size = UDim2.new(1, 0, 0, WindowInfo.CornerRadius)
+                    BottomCover.Position = UDim2.new(0, 0, 1, -ButtonCornerRadius)
+                    BottomCover.Size = UDim2.new(1, 0, 0, ButtonCornerRadius)
 
-                    LeftCover.Size = UDim2.new(0, WindowInfo.CornerRadius, 1, 0)
-                    RightCover.Size = UDim2.new(0, WindowInfo.CornerRadius, 1, 0)
+                    LeftCover.Size = UDim2.new(0, ButtonCornerRadius, 1, 0)
+                    RightCover.Size = UDim2.new(0, ButtonCornerRadius, 1, 0)
                 end
 
                 --// Execution \\--

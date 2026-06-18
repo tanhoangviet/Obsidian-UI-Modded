@@ -1,8 +1,8 @@
 local cloneref = (cloneref or clonereference or function(instance: any)
     return instance
 end)
-local clonefunction = (clonefunction or copyfunction or function(func) 
-    return func 
+local clonefunction = (clonefunction or copyfunction or function(func)
+    return func
 end)
 
 local HttpService: HttpService = cloneref(game:GetService("HttpService"))
@@ -11,10 +11,8 @@ local isfolder, isfile, listfiles = isfolder, isfile, listfiles
 if typeof(clonefunction) == "function" then
     -- Fix is_____ functions for shitsploits, those functions should never error, only return a boolean.
 
-    local
-        isfolder_copy,
-        isfile_copy,
-        listfiles_copy = clonefunction(isfolder), clonefunction(isfile), clonefunction(listfiles)
+    local isfolder_copy, isfile_copy, listfiles_copy =
+        clonefunction(isfolder), clonefunction(isfile), clonefunction(listfiles)
 
     local isfolder_success, isfolder_error = pcall(function()
         return isfolder_copy("test" .. tostring(math.random(1000000, 9999999)))
@@ -38,7 +36,8 @@ if typeof(clonefunction) == "function" then
     end
 end
 
-local SaveManager = {} do
+local SaveManager = {}
+do
     SaveManager.Folder = "ObsidianLibSettings"
     SaveManager.SubFolder = ""
     SaveManager.Ignore = {}
@@ -81,7 +80,12 @@ local SaveManager = {} do
         },
         ColorPicker = {
             Save = function(idx, object)
-                return { type = "ColorPicker", idx = idx, value = object.Value:ToHex(), transparency = object.Transparency }
+                return {
+                    type = "ColorPicker",
+                    idx = idx,
+                    value = object.Value:ToHex(),
+                    transparency = object.Transparency,
+                }
             end,
             Load = function(idx, data)
                 if SaveManager.Library.Options[idx] then
@@ -91,7 +95,13 @@ local SaveManager = {} do
         },
         KeyPicker = {
             Save = function(idx, object)
-                return { type = "KeyPicker", idx = idx, mode = object.Mode, key = object.Value, modifiers = object.Modifiers }
+                return {
+                    type = "KeyPicker",
+                    idx = idx,
+                    mode = object.Mode,
+                    key = object.Value,
+                    modifiers = object.Modifiers,
+                }
             end,
             Load = function(idx, data)
                 if SaveManager.Library.Options[idx] then
@@ -126,14 +136,23 @@ local SaveManager = {} do
 
     function SaveManager:IgnoreThemeSettings()
         self:SetIgnoreIndexes({
-            "BackgroundColor", "MainColor", "AccentColor", "OutlineColor", "FontColor", "FontFace", -- themes
-            "ThemeManager_ThemeList", "ThemeManager_CustomThemeList", "ThemeManager_CustomThemeName", -- themes
+            "BackgroundColor",
+            "MainColor",
+            "AccentColor",
+            "OutlineColor",
+            "FontColor",
+            "FontFace", -- themes
+            "ThemeManager_ThemeList",
+            "ThemeManager_CustomThemeList",
+            "ThemeManager_CustomThemeName", -- themes
         })
     end
 
     --// Folders \\--
     function SaveManager:CheckSubFolder(createFolder)
-        if typeof(self.SubFolder) ~= "string" or self.SubFolder == "" then return false end
+        if typeof(self.SubFolder) ~= "string" or self.SubFolder == "" then
+            return false
+        end
 
         if createFolder == true then
             if not isfolder(self.Folder .. "/settings/" .. self.SubFolder) then
@@ -150,7 +169,9 @@ local SaveManager = {} do
         local parts = self.Folder:split("/")
         for idx = 1, #parts do
             local path = table.concat(parts, "/", 1, idx)
-            if not table.find(paths, path) then paths[#paths + 1] = path end
+            if not table.find(paths, path) then
+                paths[#paths + 1] = path
+            end
         end
 
         paths[#paths + 1] = self.Folder .. "/themes"
@@ -162,7 +183,9 @@ local SaveManager = {} do
 
             for idx = 1, #parts do
                 local path = table.concat(parts, "/", 1, idx)
-                if not table.find(paths, path) then paths[#paths + 1] = path end
+                if not table.find(paths, path) then
+                    paths[#paths + 1] = path
+                end
             end
         end
 
@@ -174,14 +197,18 @@ local SaveManager = {} do
 
         for i = 1, #paths do
             local str = paths[i]
-            if isfolder(str) then continue end
+            if isfolder(str) then
+                continue
+            end
 
             makefolder(str)
         end
     end
 
     function SaveManager:CheckFolderTree()
-        if isfolder(self.Folder) then return end
+        if isfolder(self.Folder) then
+            return
+        end
         SaveManager:BuildFolderTree()
 
         task.wait(0.1)
@@ -205,7 +232,7 @@ local SaveManager = {} do
 
     --// Save, Load, Delete, Refresh \\--
     function SaveManager:Save(name)
-        if (not name) then
+        if not name then
             return false, "no config file is selected"
         end
         SaveManager:CheckFolderTree()
@@ -216,21 +243,33 @@ local SaveManager = {} do
         end
 
         local data = {
-            objects = {}
+            objects = {},
         }
 
         for idx, toggle in pairs(self.Library.Toggles) do
-            if not toggle.Type then continue end
-            if not self.Parser[toggle.Type] then continue end
-            if self.Ignore[idx] then continue end
+            if not toggle.Type then
+                continue
+            end
+            if not self.Parser[toggle.Type] then
+                continue
+            end
+            if self.Ignore[idx] then
+                continue
+            end
 
             table.insert(data.objects, self.Parser[toggle.Type].Save(idx, toggle))
         end
 
         for idx, option in pairs(self.Library.Options) do
-            if not option.Type then continue end
-            if not self.Parser[option.Type] then continue end
-            if self.Ignore[idx] then continue end
+            if not option.Type then
+                continue
+            end
+            if not self.Parser[option.Type] then
+                continue
+            end
+            if self.Ignore[idx] then
+                continue
+            end
 
             table.insert(data.objects, self.Parser[option.Type].Save(idx, option))
         end
@@ -245,7 +284,7 @@ local SaveManager = {} do
     end
 
     function SaveManager:Load(name)
-        if (not name) then
+        if not name then
             return false, "no config file is selected"
         end
         SaveManager:CheckFolderTree()
@@ -255,10 +294,14 @@ local SaveManager = {} do
             file = self.Folder .. "/settings/" .. self.SubFolder .. "/" .. name .. ".json"
         end
 
-        if not isfile(file) then return false, "invalid file" end
+        if not isfile(file) then
+            return false, "invalid file"
+        end
 
         local success, decoded = pcall(HttpService.JSONDecode, HttpService, readfile(file))
-        if not success then return false, "decode error" end
+        if not success then
+            return false, "decode error"
+        end
 
         if self.UseLoadingOrder == true and typeof(self.LoadingOrder) == "table" then
             table.sort(decoded.objects, function(a, b)
@@ -269,9 +312,15 @@ local SaveManager = {} do
         end
 
         for _, option in decoded.objects do
-            if not option.type then continue end
-            if not self.Parser[option.type] then continue end
-            if self.Ignore[option.idx] then continue end
+            if not option.type then
+                continue
+            end
+            if not self.Parser[option.type] then
+                continue
+            end
+            if self.Ignore[option.idx] then
+                continue
+            end
 
             task.spawn(self.Parser[option.type].Load, option.idx, option) -- task.spawn() so the config loading wont get stuck.
         end
@@ -280,7 +329,7 @@ local SaveManager = {} do
     end
 
     function SaveManager:Delete(name)
-        if (not name) then
+        if not name then
             return false, "no config file is selected"
         end
 
@@ -289,10 +338,14 @@ local SaveManager = {} do
             file = self.Folder .. "/settings/" .. self.SubFolder .. "/" .. name .. ".json"
         end
 
-        if not isfile(file) then return false, "invalid file" end
+        if not isfile(file) then
+            return false, "invalid file"
+        end
 
         local success = pcall(delfile, file)
-        if not success then return false, "delete file error" end
+        if not success then
+            return false, "delete file error"
+        end
 
         return true
     end
@@ -309,7 +362,9 @@ local SaveManager = {} do
             else
                 list = listfiles(self.Folder .. "/settings")
             end
-            if typeof(list) ~= "table" then list = {} end
+            if typeof(list) ~= "table" then
+                list = {}
+            end
 
             for i = 1, #list do
                 local file = list[i]
@@ -334,7 +389,7 @@ local SaveManager = {} do
             return out
         end)
 
-        if (not success) then
+        if not success then
             if self.Library then
                 self.Library:Notify("Failed to load config list: " .. tostring(data))
             else
@@ -403,7 +458,9 @@ local SaveManager = {} do
         end
 
         local success = pcall(writefile, autoLoadPath, name)
-        if not success then return false, "write file error" end
+        if not success then
+            return false, "write file error"
+        end
 
         return true, ""
     end
@@ -417,7 +474,9 @@ local SaveManager = {} do
         end
 
         local success = pcall(delfile, autoLoadPath)
-        if not success then return false, "delete file error" end
+        if not success then
+            return false, "delete file error"
+        end
 
         return true, ""
     end
@@ -427,8 +486,18 @@ local SaveManager = {} do
         assert(self.Library, "Must set SaveManager.Library")
 
         local section = tab:AddRightGroupbox("Configuration", "folder-cog")
+        section:AddGlassPanel({
+            Title = "Config workspace",
+            Description = "Create, load, overwrite, delete, and choose the autoload config from one focused panel.",
+            Icon = "folder-cog",
+            Badge = "SYNC",
+            Height = 84,
+            StrokeTransparency = 0.28,
+            ShadowTransparency = 0.6,
+        })
+        section:AddDivider()
 
-        section:AddInput("SaveManager_ConfigName",    { Text = "Config name" })
+        section:AddInput("SaveManager_ConfigName", { Text = "Config name" })
         section:AddButton("Create config", function()
             local name = self.Library.Options.SaveManager_ConfigName.Value
 
@@ -450,7 +519,13 @@ local SaveManager = {} do
 
         section:AddDivider()
 
-        section:AddDropdown("SaveManager_ConfigList", { Text = "Config list", Values = self:RefreshConfigList(), AllowNull = true })
+        section:AddDropdown("SaveManager_ConfigList", {
+            Text = "Config list",
+            Values = self:RefreshConfigList(),
+            AllowNull = true,
+            Searchable = true,
+            MaxVisibleDropdownItems = 6,
+        })
         section:AddButton("Load config", function()
             local name = self.Library.Options.SaveManager_ConfigList.Value
 
@@ -516,6 +591,7 @@ local SaveManager = {} do
             self.AutoloadConfigLabel:SetText("Current autoload config: none")
         end)
 
+        section:AddDivider()
         self.AutoloadConfigLabel = section:AddLabel("Current autoload config: " .. self:GetAutoloadConfig(), true)
 
         -- self:LoadAutoloadConfig()

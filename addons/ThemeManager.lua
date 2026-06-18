@@ -1,8 +1,8 @@
 local cloneref = (cloneref or clonereference or function(instance: any)
     return instance
 end)
-local clonefunction = (clonefunction or copyfunction or function(func) 
-    return func 
+local clonefunction = (clonefunction or copyfunction or function(func)
+    return func
 end)
 
 local HttpService: HttpService = cloneref(game:GetService("HttpService"))
@@ -11,10 +11,8 @@ local isfolder, isfile, listfiles = isfolder, isfile, listfiles
 if typeof(clonefunction) == "function" then
     -- Fix is_____ functions for shitsploits, those functions should never error, only return a boolean.
 
-    local
-        isfolder_copy,
-        isfile_copy,
-        listfiles_copy = clonefunction(isfolder), clonefunction(isfile), clonefunction(listfiles)
+    local isfolder_copy, isfile_copy, listfiles_copy =
+        clonefunction(isfolder), clonefunction(isfile), clonefunction(listfiles)
 
     local isfolder_success, isfolder_error = pcall(function()
         return isfolder_copy("test" .. tostring(math.random(1000000, 9999999)))
@@ -52,178 +50,543 @@ do
     ThemeManager.Library = nil
     ThemeManager.AppliedToTab = false
     ThemeManager.ThemeGradients = true
+    ThemeManager.DefaultTheme = "Nightmare"
     ThemeManager.BuiltInThemes = {
         ["Default"] = {
             1,
-            { FontColor = "ffffff", MainColor = "191919", AccentColor = "7d55ff", BackgroundColor = "0f0f0f", OutlineColor = "282828" },
+            {
+                FontColor = "ffffff",
+                MainColor = "191919",
+                AccentColor = "7d55ff",
+                BackgroundColor = "0f0f0f",
+                OutlineColor = "282828",
+            },
         },
         ["BBot"] = {
             2,
-            { FontColor = "ffffff", MainColor = "1e1e1e", AccentColor = "7e48a3", BackgroundColor = "232323", OutlineColor = "141414" },
+            {
+                FontColor = "ffffff",
+                MainColor = "1e1e1e",
+                AccentColor = "7e48a3",
+                BackgroundColor = "232323",
+                OutlineColor = "141414",
+            },
         },
         ["Fatality"] = {
             3,
-            { FontColor = "ffffff", MainColor = "1e1842", AccentColor = "c50754", BackgroundColor = "191335", OutlineColor = "3c355d" },
+            {
+                FontColor = "ffffff",
+                MainColor = "1e1842",
+                AccentColor = "c50754",
+                BackgroundColor = "191335",
+                OutlineColor = "3c355d",
+            },
         },
         ["Jester"] = {
             4,
-            { FontColor = "ffffff", MainColor = "242424", AccentColor = "db4467", BackgroundColor = "1c1c1c", OutlineColor = "373737" },
+            {
+                FontColor = "ffffff",
+                MainColor = "242424",
+                AccentColor = "db4467",
+                BackgroundColor = "1c1c1c",
+                OutlineColor = "373737",
+            },
         },
         ["Mint"] = {
             5,
-            { FontColor = "ffffff", MainColor = "242424", AccentColor = "3db488", BackgroundColor = "1c1c1c", OutlineColor = "373737" },
+            {
+                FontColor = "ffffff",
+                MainColor = "242424",
+                AccentColor = "3db488",
+                BackgroundColor = "1c1c1c",
+                OutlineColor = "373737",
+            },
         },
         ["Tokyo Night"] = {
             6,
-            { FontColor = "ffffff", MainColor = "191925", AccentColor = "6759b3", BackgroundColor = "16161f", OutlineColor = "323232" },
+            {
+                FontColor = "ffffff",
+                MainColor = "191925",
+                AccentColor = "6759b3",
+                BackgroundColor = "16161f",
+                OutlineColor = "323232",
+            },
         },
         ["Ubuntu"] = {
             7,
-            { FontColor = "ffffff", MainColor = "3e3e3e", AccentColor = "e2581e", BackgroundColor = "323232", OutlineColor = "191919" },
+            {
+                FontColor = "ffffff",
+                MainColor = "3e3e3e",
+                AccentColor = "e2581e",
+                BackgroundColor = "323232",
+                OutlineColor = "191919",
+            },
         },
         ["Quartz"] = {
             8,
-            { FontColor = "ffffff", MainColor = "232330", AccentColor = "426e87", BackgroundColor = "1d1b26", OutlineColor = "27232f" },
+            {
+                FontColor = "ffffff",
+                MainColor = "232330",
+                AccentColor = "426e87",
+                BackgroundColor = "1d1b26",
+                OutlineColor = "27232f",
+            },
         },
         ["Nord"] = {
             9,
-            { FontColor = "eceff4", MainColor = "3b4252", AccentColor = "88c0d0", BackgroundColor = "2e3440", OutlineColor = "4c566a" },
+            {
+                FontColor = "eceff4",
+                MainColor = "3b4252",
+                AccentColor = "88c0d0",
+                BackgroundColor = "2e3440",
+                OutlineColor = "4c566a",
+            },
         },
         ["Dracula"] = {
             10,
-            { FontColor = "f8f8f2", MainColor = "44475a", AccentColor = "ff79c6", BackgroundColor = "282a36", OutlineColor = "6272a4" },
+            {
+                FontColor = "f8f8f2",
+                MainColor = "44475a",
+                AccentColor = "ff79c6",
+                BackgroundColor = "282a36",
+                OutlineColor = "6272a4",
+            },
         },
         ["Monokai"] = {
             11,
-            { FontColor = "f8f8f2", MainColor = "272822", AccentColor = "f92672", BackgroundColor = "1e1f1c", OutlineColor = "49483e" },
+            {
+                FontColor = "f8f8f2",
+                MainColor = "272822",
+                AccentColor = "f92672",
+                BackgroundColor = "1e1f1c",
+                OutlineColor = "49483e",
+            },
         },
         ["Gruvbox"] = {
             12,
-            { FontColor = "ebdbb2", MainColor = "3c3836", AccentColor = "fb4934", BackgroundColor = "282828", OutlineColor = "504945" },
+            {
+                FontColor = "ebdbb2",
+                MainColor = "3c3836",
+                AccentColor = "fb4934",
+                BackgroundColor = "282828",
+                OutlineColor = "504945",
+            },
         },
         ["Solarized"] = {
             13,
-            { FontColor = "839496", MainColor = "073642", AccentColor = "cb4b16", BackgroundColor = "002b36", OutlineColor = "586e75" },
+            {
+                FontColor = "839496",
+                MainColor = "073642",
+                AccentColor = "cb4b16",
+                BackgroundColor = "002b36",
+                OutlineColor = "586e75",
+            },
         },
         ["Catppuccin"] = {
             14,
-            { FontColor = "d9e0ee", MainColor = "302d41", AccentColor = "f5c2e7", BackgroundColor = "1e1e2e", OutlineColor = "575268" },
+            {
+                FontColor = "d9e0ee",
+                MainColor = "302d41",
+                AccentColor = "f5c2e7",
+                BackgroundColor = "1e1e2e",
+                OutlineColor = "575268",
+            },
         },
         ["One Dark"] = {
             15,
-            { FontColor = "abb2bf", MainColor = "282c34", AccentColor = "c678dd", BackgroundColor = "21252b", OutlineColor = "5c6370" },
+            {
+                FontColor = "abb2bf",
+                MainColor = "282c34",
+                AccentColor = "c678dd",
+                BackgroundColor = "21252b",
+                OutlineColor = "5c6370",
+            },
         },
         ["Cyberpunk"] = {
             16,
-            { FontColor = "f9f9f9", MainColor = "262335", AccentColor = "00ff9f", BackgroundColor = "1a1a2e", OutlineColor = "413c5e" },
+            {
+                FontColor = "f9f9f9",
+                MainColor = "262335",
+                AccentColor = "00ff9f",
+                BackgroundColor = "1a1a2e",
+                OutlineColor = "413c5e",
+            },
         },
         ["Oceanic Next"] = {
             17,
-            { FontColor = "d8dee9", MainColor = "1b2b34", AccentColor = "6699cc", BackgroundColor = "16232a", OutlineColor = "343d46" },
+            {
+                FontColor = "d8dee9",
+                MainColor = "1b2b34",
+                AccentColor = "6699cc",
+                BackgroundColor = "16232a",
+                OutlineColor = "343d46",
+            },
         },
         ["Material"] = {
             18,
-            { FontColor = "eeffff", MainColor = "212121", AccentColor = "82aaff", BackgroundColor = "151515", OutlineColor = "424242" },
+            {
+                FontColor = "eeffff",
+                MainColor = "212121",
+                AccentColor = "82aaff",
+                BackgroundColor = "151515",
+                OutlineColor = "424242",
+            },
         },
         ["Gradient Violet Storm"] = {
             19,
-            { FontColor = "ffffff", MainColor = "21182f", AccentColor = "9b5cff", BackgroundColor = "100b1a", OutlineColor = "4d3a73", GradientColor1 = "9b5cff", GradientColor2 = "120c28", GradientRotation = 35 },
+            {
+                FontColor = "ffffff",
+                MainColor = "21182f",
+                AccentColor = "9b5cff",
+                BackgroundColor = "100b1a",
+                OutlineColor = "4d3a73",
+                GradientColor1 = "9b5cff",
+                GradientColor2 = "120c28",
+                GradientRotation = 35,
+            },
         },
         ["Gradient Aurora"] = {
             20,
-            { FontColor = "f4fff8", MainColor = "102522", AccentColor = "42f5b3", BackgroundColor = "071514", OutlineColor = "236b62", GradientColor1 = "42f5b3", GradientColor2 = "2d7dff", GradientRotation = 25 },
+            {
+                FontColor = "f4fff8",
+                MainColor = "102522",
+                AccentColor = "42f5b3",
+                BackgroundColor = "071514",
+                OutlineColor = "236b62",
+                GradientColor1 = "42f5b3",
+                GradientColor2 = "2d7dff",
+                GradientRotation = 25,
+            },
         },
         ["Gradient Sunset"] = {
             21,
-            { FontColor = "fff8f0", MainColor = "2b181d", AccentColor = "ff8a5b", BackgroundColor = "140b12", OutlineColor = "704057", GradientColor1 = "ff8a5b", GradientColor2 = "a855f7", GradientRotation = 32 },
+            {
+                FontColor = "fff8f0",
+                MainColor = "2b181d",
+                AccentColor = "ff8a5b",
+                BackgroundColor = "140b12",
+                OutlineColor = "704057",
+                GradientColor1 = "ff8a5b",
+                GradientColor2 = "a855f7",
+                GradientRotation = 32,
+            },
         },
         ["Gradient Ocean"] = {
             22,
-            { FontColor = "eaf8ff", MainColor = "102033", AccentColor = "38bdf8", BackgroundColor = "07111f", OutlineColor = "24577a", GradientColor1 = "38bdf8", GradientColor2 = "2563eb", GradientRotation = 42 },
+            {
+                FontColor = "eaf8ff",
+                MainColor = "102033",
+                AccentColor = "38bdf8",
+                BackgroundColor = "07111f",
+                OutlineColor = "24577a",
+                GradientColor1 = "38bdf8",
+                GradientColor2 = "2563eb",
+                GradientRotation = 42,
+            },
         },
         ["Gradient Emerald"] = {
             23,
-            { FontColor = "ecfdf5", MainColor = "12261d", AccentColor = "34d399", BackgroundColor = "08150f", OutlineColor = "27694b", GradientColor1 = "34d399", GradientColor2 = "0f766e", GradientRotation = 28 },
+            {
+                FontColor = "ecfdf5",
+                MainColor = "12261d",
+                AccentColor = "34d399",
+                BackgroundColor = "08150f",
+                OutlineColor = "27694b",
+                GradientColor1 = "34d399",
+                GradientColor2 = "0f766e",
+                GradientRotation = 28,
+            },
         },
         ["Gradient Crimson"] = {
             24,
-            { FontColor = "fff1f2", MainColor = "2a1418", AccentColor = "fb7185", BackgroundColor = "13070a", OutlineColor = "74323e", GradientColor1 = "fb7185", GradientColor2 = "dc2626", GradientRotation = 38 },
+            {
+                FontColor = "fff1f2",
+                MainColor = "2a1418",
+                AccentColor = "fb7185",
+                BackgroundColor = "13070a",
+                OutlineColor = "74323e",
+                GradientColor1 = "fb7185",
+                GradientColor2 = "dc2626",
+                GradientRotation = 38,
+            },
         },
         ["Gradient Cyber Lime"] = {
             25,
-            { FontColor = "f7ffe5", MainColor = "1c2513", AccentColor = "a3e635", BackgroundColor = "0c1208", OutlineColor = "556f20", GradientColor1 = "a3e635", GradientColor2 = "06b6d4", GradientRotation = 20 },
+            {
+                FontColor = "f7ffe5",
+                MainColor = "1c2513",
+                AccentColor = "a3e635",
+                BackgroundColor = "0c1208",
+                OutlineColor = "556f20",
+                GradientColor1 = "a3e635",
+                GradientColor2 = "06b6d4",
+                GradientRotation = 20,
+            },
         },
         ["Gradient Sakura"] = {
             26,
-            { FontColor = "fff7fb", MainColor = "2d1b27", AccentColor = "f9a8d4", BackgroundColor = "140b12", OutlineColor = "7a4562", GradientColor1 = "f9a8d4", GradientColor2 = "f472b6", GradientRotation = 34 },
+            {
+                FontColor = "fff7fb",
+                MainColor = "2d1b27",
+                AccentColor = "f9a8d4",
+                BackgroundColor = "140b12",
+                OutlineColor = "7a4562",
+                GradientColor1 = "f9a8d4",
+                GradientColor2 = "f472b6",
+                GradientRotation = 34,
+            },
         },
         ["Gradient Royal"] = {
             27,
-            { FontColor = "f5f3ff", MainColor = "1d1b35", AccentColor = "8b5cf6", BackgroundColor = "0e0b1f", OutlineColor = "5546a0", GradientColor1 = "8b5cf6", GradientColor2 = "3b82f6", GradientRotation = 45 },
+            {
+                FontColor = "f5f3ff",
+                MainColor = "1d1b35",
+                AccentColor = "8b5cf6",
+                BackgroundColor = "0e0b1f",
+                OutlineColor = "5546a0",
+                GradientColor1 = "8b5cf6",
+                GradientColor2 = "3b82f6",
+                GradientRotation = 45,
+            },
         },
         ["Gradient Ice"] = {
             28,
-            { FontColor = "f8fbff", MainColor = "172435", AccentColor = "93c5fd", BackgroundColor = "0b1320", OutlineColor = "496987", GradientColor1 = "93c5fd", GradientColor2 = "67e8f9", GradientRotation = 18 },
+            {
+                FontColor = "f8fbff",
+                MainColor = "172435",
+                AccentColor = "93c5fd",
+                BackgroundColor = "0b1320",
+                OutlineColor = "496987",
+                GradientColor1 = "93c5fd",
+                GradientColor2 = "67e8f9",
+                GradientRotation = 18,
+            },
         },
         ["Gradient Amber"] = {
             29,
-            { FontColor = "fffbeb", MainColor = "2b2112", AccentColor = "f59e0b", BackgroundColor = "151006", OutlineColor = "72501d", GradientColor1 = "f59e0b", GradientColor2 = "ef4444", GradientRotation = 30 },
+            {
+                FontColor = "fffbeb",
+                MainColor = "2b2112",
+                AccentColor = "f59e0b",
+                BackgroundColor = "151006",
+                OutlineColor = "72501d",
+                GradientColor1 = "f59e0b",
+                GradientColor2 = "ef4444",
+                GradientRotation = 30,
+            },
         },
         ["Gradient Matrix"] = {
             30,
-            { FontColor = "dcfce7", MainColor = "101c12", AccentColor = "22c55e", BackgroundColor = "050c07", OutlineColor = "276749", GradientColor1 = "22c55e", GradientColor2 = "14532d", GradientRotation = 22 },
+            {
+                FontColor = "dcfce7",
+                MainColor = "101c12",
+                AccentColor = "22c55e",
+                BackgroundColor = "050c07",
+                OutlineColor = "276749",
+                GradientColor1 = "22c55e",
+                GradientColor2 = "14532d",
+                GradientRotation = 22,
+            },
         },
         ["Gradient Galaxy"] = {
             31,
-            { FontColor = "f5f5ff", MainColor = "1b1734", AccentColor = "c084fc", BackgroundColor = "090819", OutlineColor = "53427a", GradientColor1 = "c084fc", GradientColor2 = "312e81", GradientRotation = 48 },
+            {
+                FontColor = "f5f5ff",
+                MainColor = "1b1734",
+                AccentColor = "c084fc",
+                BackgroundColor = "090819",
+                OutlineColor = "53427a",
+                GradientColor1 = "c084fc",
+                GradientColor2 = "312e81",
+                GradientRotation = 48,
+            },
         },
         ["Gradient Lava"] = {
             32,
-            { FontColor = "fff7ed", MainColor = "2c1910", AccentColor = "fb923c", BackgroundColor = "160a05", OutlineColor = "7c3a17", GradientColor1 = "fb923c", GradientColor2 = "b91c1c", GradientRotation = 36 },
+            {
+                FontColor = "fff7ed",
+                MainColor = "2c1910",
+                AccentColor = "fb923c",
+                BackgroundColor = "160a05",
+                OutlineColor = "7c3a17",
+                GradientColor1 = "fb923c",
+                GradientColor2 = "b91c1c",
+                GradientRotation = 36,
+            },
         },
         ["Gradient Minty"] = {
             33,
-            { FontColor = "f0fdfa", MainColor = "13221f", AccentColor = "5eead4", BackgroundColor = "071311", OutlineColor = "2b7169", GradientColor1 = "5eead4", GradientColor2 = "14b8a6", GradientRotation = 26 },
+            {
+                FontColor = "f0fdfa",
+                MainColor = "13221f",
+                AccentColor = "5eead4",
+                BackgroundColor = "071311",
+                OutlineColor = "2b7169",
+                GradientColor1 = "5eead4",
+                GradientColor2 = "14b8a6",
+                GradientRotation = 26,
+            },
         },
         ["Gradient Candy"] = {
             34,
-            { FontColor = "fff7ff", MainColor = "29172a", AccentColor = "f0abfc", BackgroundColor = "130812", OutlineColor = "7a3f7d", GradientColor1 = "f0abfc", GradientColor2 = "fb7185", GradientRotation = 40 },
+            {
+                FontColor = "fff7ff",
+                MainColor = "29172a",
+                AccentColor = "f0abfc",
+                BackgroundColor = "130812",
+                OutlineColor = "7a3f7d",
+                GradientColor1 = "f0abfc",
+                GradientColor2 = "fb7185",
+                GradientRotation = 40,
+            },
         },
         ["Gradient Midnight"] = {
             35,
-            { FontColor = "e0f2fe", MainColor = "111827", AccentColor = "60a5fa", BackgroundColor = "030712", OutlineColor = "334155", GradientColor1 = "60a5fa", GradientColor2 = "7c3aed", GradientRotation = 46 },
+            {
+                FontColor = "e0f2fe",
+                MainColor = "111827",
+                AccentColor = "60a5fa",
+                BackgroundColor = "030712",
+                OutlineColor = "334155",
+                GradientColor1 = "60a5fa",
+                GradientColor2 = "7c3aed",
+                GradientRotation = 46,
+            },
         },
         ["Gradient Amethyst Glass"] = {
             36,
-            { FontColor = "f8f5ff", MainColor = "181326", AccentColor = "a78bfa", BackgroundColor = "090711", OutlineColor = "4c3a75", GradientColor1 = "a78bfa", GradientColor2 = "22d3ee", GradientRotation = 32, GradientTransparencyStart = 0.78, GradientTransparencyEnd = 0.96 },
+            {
+                FontColor = "f8f5ff",
+                MainColor = "181326",
+                AccentColor = "a78bfa",
+                BackgroundColor = "090711",
+                OutlineColor = "4c3a75",
+                GradientColor1 = "a78bfa",
+                GradientColor2 = "22d3ee",
+                GradientRotation = 32,
+                GradientTransparencyStart = 0.78,
+                GradientTransparencyEnd = 0.96,
+            },
         },
         ["Gradient Neon Noir"] = {
             37,
-            { FontColor = "f8fafc", MainColor = "10151f", AccentColor = "38bdf8", BackgroundColor = "05070d", OutlineColor = "1f3b57", GradientColor1 = "38bdf8", GradientColor2 = "e879f9", GradientRotation = 40, GradientTransparencyStart = 0.8, GradientTransparencyEnd = 0.97 },
+            {
+                FontColor = "f8fafc",
+                MainColor = "10151f",
+                AccentColor = "38bdf8",
+                BackgroundColor = "05070d",
+                OutlineColor = "1f3b57",
+                GradientColor1 = "38bdf8",
+                GradientColor2 = "e879f9",
+                GradientRotation = 40,
+                GradientTransparencyStart = 0.8,
+                GradientTransparencyEnd = 0.97,
+            },
         },
         ["Gradient Prism Void"] = {
             38,
-            { FontColor = "f6f0ff", MainColor = "171123", AccentColor = "c084fc", BackgroundColor = "07050e", OutlineColor = "5b3d84", GradientColor1 = "c084fc", GradientColor2 = "fb7185", GradientRotation = 24, GradientTransparencyStart = 0.82, GradientTransparencyEnd = 0.97 },
+            {
+                FontColor = "f6f0ff",
+                MainColor = "171123",
+                AccentColor = "c084fc",
+                BackgroundColor = "07050e",
+                OutlineColor = "5b3d84",
+                GradientColor1 = "c084fc",
+                GradientColor2 = "fb7185",
+                GradientRotation = 24,
+                GradientTransparencyStart = 0.82,
+                GradientTransparencyEnd = 0.97,
+            },
         },
         ["Gradient Arctic Pulse"] = {
             39,
-            { FontColor = "f0fbff", MainColor = "10202a", AccentColor = "67e8f9", BackgroundColor = "061018", OutlineColor = "245b6a", GradientColor1 = "67e8f9", GradientColor2 = "818cf8", GradientRotation = 18, GradientTransparencyStart = 0.8, GradientTransparencyEnd = 0.96 },
+            {
+                FontColor = "f0fbff",
+                MainColor = "10202a",
+                AccentColor = "67e8f9",
+                BackgroundColor = "061018",
+                OutlineColor = "245b6a",
+                GradientColor1 = "67e8f9",
+                GradientColor2 = "818cf8",
+                GradientRotation = 18,
+                GradientTransparencyStart = 0.8,
+                GradientTransparencyEnd = 0.96,
+            },
         },
         ["Gradient Rose Quartz"] = {
             40,
-            { FontColor = "fff7fb", MainColor = "261421", AccentColor = "f9a8d4", BackgroundColor = "10070d", OutlineColor = "6f3556", GradientColor1 = "f9a8d4", GradientColor2 = "f43f5e", GradientRotation = 34, GradientTransparencyStart = 0.81, GradientTransparencyEnd = 0.97 },
+            {
+                FontColor = "fff7fb",
+                MainColor = "261421",
+                AccentColor = "f9a8d4",
+                BackgroundColor = "10070d",
+                OutlineColor = "6f3556",
+                GradientColor1 = "f9a8d4",
+                GradientColor2 = "f43f5e",
+                GradientRotation = 34,
+                GradientTransparencyStart = 0.81,
+                GradientTransparencyEnd = 0.97,
+            },
         },
         ["Gradient Jade Circuit"] = {
             41,
-            { FontColor = "ecfff8", MainColor = "10221c", AccentColor = "2dd4bf", BackgroundColor = "06100d", OutlineColor = "236657", GradientColor1 = "2dd4bf", GradientColor2 = "84cc16", GradientRotation = 27, GradientTransparencyStart = 0.82, GradientTransparencyEnd = 0.97 },
+            {
+                FontColor = "ecfff8",
+                MainColor = "10221c",
+                AccentColor = "2dd4bf",
+                BackgroundColor = "06100d",
+                OutlineColor = "236657",
+                GradientColor1 = "2dd4bf",
+                GradientColor2 = "84cc16",
+                GradientRotation = 27,
+                GradientTransparencyStart = 0.82,
+                GradientTransparencyEnd = 0.97,
+            },
         },
         ["Gradient Solar Flare"] = {
             42,
-            { FontColor = "fff9ed", MainColor = "27190c", AccentColor = "fbbf24", BackgroundColor = "110906", OutlineColor = "735221", GradientColor1 = "fbbf24", GradientColor2 = "fb7185", GradientRotation = 36, GradientTransparencyStart = 0.8, GradientTransparencyEnd = 0.96 },
+            {
+                FontColor = "fff9ed",
+                MainColor = "27190c",
+                AccentColor = "fbbf24",
+                BackgroundColor = "110906",
+                OutlineColor = "735221",
+                GradientColor1 = "fbbf24",
+                GradientColor2 = "fb7185",
+                GradientRotation = 36,
+                GradientTransparencyStart = 0.8,
+                GradientTransparencyEnd = 0.96,
+            },
         },
         ["Gradient Deep Space"] = {
             43,
-            { FontColor = "eef2ff", MainColor = "111428", AccentColor = "8b5cf6", BackgroundColor = "050712", OutlineColor = "38406f", GradientColor1 = "8b5cf6", GradientColor2 = "0ea5e9", GradientRotation = 44, GradientTransparencyStart = 0.79, GradientTransparencyEnd = 0.97 },
+            {
+                FontColor = "eef2ff",
+                MainColor = "111428",
+                AccentColor = "8b5cf6",
+                BackgroundColor = "050712",
+                OutlineColor = "38406f",
+                GradientColor1 = "8b5cf6",
+                GradientColor2 = "0ea5e9",
+                GradientRotation = 44,
+                GradientTransparencyStart = 0.79,
+                GradientTransparencyEnd = 0.97,
+            },
+        },
+        ["Nightmare"] = {
+            44,
+            {
+                FontColor = "f8f4ff",
+                MainColor = "151020",
+                AccentColor = "b86cff",
+                BackgroundColor = "05040a",
+                OutlineColor = "3f2a63",
+                GradientColor1 = "b86cff",
+                GradientColor2 = "0ea5e9",
+                GradientRotation = 38,
+                GradientTransparencyStart = 0.76,
+                GradientTransparencyEnd = 0.97,
+            },
         },
     }
 
@@ -258,8 +621,12 @@ do
             return nil
         end
 
-        local FromColor = ColorFromHex(Scheme.GradientColor1 or Scheme.GradientFromColor or Scheme.AccentColor, Scheme.AccentColor)
-        local ToColor = ColorFromHex(Scheme.GradientColor2 or Scheme.GradientToColor or Scheme.BackgroundColor, Scheme.BackgroundColor)
+        local FromColor =
+            ColorFromHex(Scheme.GradientColor1 or Scheme.GradientFromColor or Scheme.AccentColor, Scheme.AccentColor)
+        local ToColor = ColorFromHex(
+            Scheme.GradientColor2 or Scheme.GradientToColor or Scheme.BackgroundColor,
+            Scheme.BackgroundColor
+        )
         local StartTransparency = Preview and 0.05
             or NumberFrom(Scheme.GradientTransparencyStart or Scheme.GradientTransparency0, 0.84)
         local EndTransparency = Preview and 0.32
@@ -283,7 +650,11 @@ do
 
         return {
             Text = Name,
-            Description = string.format("Accent #%s / Main #%s", CleanHex(Scheme.AccentColor), CleanHex(Scheme.MainColor)),
+            Description = string.format(
+                "Accent #%s / Main #%s",
+                CleanHex(Scheme.AccentColor),
+                CleanHex(Scheme.MainColor)
+            ),
             Icon = "paintbrush",
             BottomBarTransparency = 0.16,
             StrokeColor = ColorFromHex(Scheme.AccentColor, "7d55ff"),
@@ -455,11 +826,9 @@ do
             if typeof(theme[field]) == "Color3" then
                 FinalTheme[field] = "#" .. theme[field]:ToHex()
                 LibraryScheme[field] = theme[field]
-
             elseif typeof(theme[field]) == "string" then
                 FinalTheme[field] = if theme[field]:sub(1, 1) == "#" then theme[field] else ("#" .. theme[field])
                 LibraryScheme[field] = Color3.fromHex(theme[field])
-
             else
                 FinalTheme[field] = ThemeManager.BuiltInThemes["Default"][2][field]
                 LibraryScheme[field] = Color3.fromHex(ThemeManager.BuiltInThemes["Default"][2][field])
@@ -469,11 +838,9 @@ do
         if typeof(theme["FontFace"]) == "EnumItem" then
             FinalTheme["FontFace"] = theme["FontFace"].Name
             LibraryScheme["Font"] = Font.fromEnum(theme["FontFace"])
-
         elseif typeof(theme["FontFace"]) == "string" then
             FinalTheme["FontFace"] = theme["FontFace"]
             LibraryScheme["Font"] = Font.fromEnum(Enum.Font[theme["FontFace"]])
-
         else
             FinalTheme["FontFace"] = "Code"
             LibraryScheme["Font"] = Font.fromEnum(Enum.Font.Code)
@@ -551,6 +918,17 @@ do
 
     --// GUI \\--
     function ThemeManager:CreateThemeManager(groupbox)
+        groupbox:AddGlassPanel({
+            Title = "Theme studio",
+            Description = "Pick a built-in card theme, save your own palette, or set the default theme for the next launch.",
+            Icon = "paintbrush",
+            Badge = "LIVE",
+            Height = 84,
+            StrokeTransparency = 0.22,
+            ShadowTransparency = 0.55,
+        })
+        groupbox:AddDivider()
+
         groupbox
             :AddLabel("Background color")
             :AddColorPicker("BackgroundColor", { Default = self.Library.Scheme.BackgroundColor })
@@ -584,7 +962,7 @@ do
         groupbox:AddDropdown("ThemeManager_ThemeList", {
             Text = "Theme",
             Values = ThemesArray,
-            Default = 1,
+            Default = table.find(ThemesArray, "Nightmare") or 1,
             Searchable = true,
             CardDropdown = true,
             CardHeight = 88,
@@ -604,6 +982,16 @@ do
         end)
 
         groupbox:AddDivider()
+
+        groupbox:AddGlassPanel({
+            Title = "Custom themes",
+            Description = "Save the current palette, overwrite an existing theme, or reset the default pointer.",
+            Icon = "swatch-book",
+            Height = 74,
+            Transparency = 0.22,
+            StrokeTransparency = 0.38,
+            ShadowTransparency = 0.65,
+        })
 
         groupbox:AddInput("ThemeManager_CustomThemeName", { Text = "Custom theme name" })
         groupbox:AddButton("Create theme", function()

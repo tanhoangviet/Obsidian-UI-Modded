@@ -44,6 +44,7 @@ local Window = Library:CreateWindow({
     DynamicIslandGlowColor = "WhiteColor",
     DynamicIslandGlowTransparency = 0.86,
     DynamicIslandShadow = true,
+    DynamicIslandGlassStyle = "iOS",
     DynamicIslandIdleDelay = 2.2,
     DynamicIslandIdleTransparency = 0.56,
     DynamicIslandHoldDuration = 0.45,
@@ -1244,7 +1245,15 @@ Tabs.Key:AddButton({
 Library:AddDraggableLabel("This is a Draggable Label")
 
 -- UI Settings
-local MenuGroup = Tabs["UI Settings"]:AddLeftGroupbox("Menu", "wrench")
+local MenuGroup = Tabs["UI Settings"]:AddLeftGroupbox("Interface", "wrench")
+
+MenuGroup:AddGlassPanel({
+    Title = "Interface control",
+    Description = "Quick runtime controls for the menu, DPI, notification side, and global corner radius.",
+    Icon = "sliders-horizontal",
+    Badge = "UI",
+    Height = 82,
+})
 
 MenuGroup:AddToggle("KeybindMenuOpen", {
     Default = Library.KeybindFrame.Visible,
@@ -1302,6 +1311,55 @@ MenuGroup:AddLabel("Menu bind")
 MenuGroup:AddButton("Unload", function()
     Library:Unload()
 end)
+
+local IslandSettings = Tabs["UI Settings"]:AddRightGroupbox("Dynamic Island", "sparkles")
+IslandSettings:AddGlassPanel({
+    Title = "Dynamic Island",
+    Description = "Runtime controls for the top island. Glass style is configured at window creation.",
+    Icon = "sparkles",
+    Badge = "iOS",
+    Height = 82,
+})
+IslandSettings:AddToggle("DynamicIslandVisible", {
+    Text = "Show Dynamic Island",
+    Default = true,
+    Callback = function(Value)
+        Window:SetDynamicIslandVisible(Value)
+    end,
+})
+IslandSettings:AddDropdown("DynamicIslandStateDemo", {
+    Text = "Demo State",
+    Values = { "Closed", "Open", "Locked", "Unlocked" },
+    Default = "Closed",
+    Callback = function(Value)
+        if Value == "Open" then
+            Window:SetDynamicIslandText("mspaint", "UI is active")
+        elseif Value == "Locked" then
+            Window:SetDynamicIslandText("mspaint", "Locked")
+        elseif Value == "Unlocked" then
+            Window:SetDynamicIslandText("mspaint", "Unlocked")
+        else
+            Window:SetDynamicIslandText("mspaint", "Tap to open UI")
+        end
+    end,
+})
+IslandSettings:AddButton({
+    Text = "Pulse island notification",
+    Func = function()
+        Window:SetDynamicIslandText("mspaint", "Nightmare glass ready")
+        Library:NotifyInfo({
+            Title = "Dynamic Island",
+            Description = "Updated text and verified the iOS glass preset.",
+            Time = 3,
+        })
+    end,
+})
+IslandSettings:AddButton({
+    Text = "Reset island text",
+    Func = function()
+        Window:SetDynamicIslandText("mspaint", Library.Toggled and "UI is active" or "Tap to open UI")
+    end,
+})
 
 Library.ToggleKeybind = Options.MenuKeybind -- Allows you to have a custom keybind for the menu
 

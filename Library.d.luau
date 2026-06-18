@@ -2247,6 +2247,7 @@ export type Library = {
             DynamicIslandGlassTransparency: number?,
             DynamicIslandLiquidGlass: boolean?,
             DynamicIslandLiquidGlassIntensity: number?,
+            DynamicIslandGlassStyle: ("iOS" | "Clean" | "Legacy" | string)?,
             DynamicIslandBorderThickness: number?,
             DynamicIslandShadow: boolean?,
             DynamicIslandShadowColor: Color3 | string?,
