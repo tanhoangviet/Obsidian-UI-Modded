@@ -77,7 +77,9 @@ local Window = Library:CreateWindow({
     SideBarAllowBeta = true,
     SideBarDockThreshold = 54,
     SideBarDockCenterPage = true,
-    SideBarDockHandleSize = UDim2.fromOffset(20, 80),
+    SideBarDockWidth = 58,
+    SideBarDockGap = 10,
+    SideBarDockGrabSize = UDim2.fromOffset(5, 48),
     KeybindMenuWidth = 360,
     KeybindMenuMaxHeight = 240,
     FullscreenBackground = true,
@@ -1310,7 +1312,7 @@ MenuGroup:AddSlider("UICornerSlider", {
 
 MenuGroup:AddDivider()
 MenuGroup:AddButton({
-    Text = "Dock icon sidebar beta",
+    Text = "Detach tab sidebar beta",
     Icon = "panel-left-open",
     Callback = function()
         if not Window:SetSideBarDocked(true, "Left") then
@@ -1323,7 +1325,7 @@ MenuGroup:AddButton({
     end,
 })
 MenuGroup:AddButton({
-    Text = "Undock sidebar beta",
+    Text = "Restore tab holder",
     Icon = "panel-left-close",
     Callback = function()
         Window:SetSideBarDocked(false)

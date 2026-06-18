@@ -763,6 +763,11 @@ local Templates = {
         SideBarDockHandle = true,
         SideBarDockHandleSize = UDim2.fromOffset(20, 78),
         SideBarDockHandleOffset = 1,
+        SideBarDockDetached = true,
+        SideBarDockWidth = 58,
+        SideBarDockGap = 10,
+        SideBarDockMargin = 8,
+        SideBarDockGrabSize = UDim2.fromOffset(5, 48),
         MinContainerWidth = 256,
 
         --// Snapping \\--
@@ -11566,6 +11571,14 @@ function Library:CreateWindow(WindowInfo)
         WindowInfo.SideBarAllowBeta = WindowInfo.SidebarAllowBeta
     end
     WindowInfo.SideBarDockThreshold = math.max(16, tonumber(WindowInfo.SideBarDockThreshold) or 42)
+    WindowInfo.SideBarDockWidth = math.max(44, tonumber(WindowInfo.SideBarDockWidth) or 58)
+    WindowInfo.SideBarDockGap = math.max(0, tonumber(WindowInfo.SideBarDockGap) or 10)
+    WindowInfo.SideBarDockMargin = math.max(0, tonumber(WindowInfo.SideBarDockMargin) or 8)
+    if typeof(WindowInfo.SideBarDockGrabSize) ~= "UDim2" then
+        WindowInfo.SideBarDockGrabSize = typeof(WindowInfo.SideBarDockHandleSize) == "UDim2"
+                and WindowInfo.SideBarDockHandleSize
+            or UDim2.fromOffset(5, 48)
+    end
 
     Library.CornerRadius = WindowInfo.CornerRadius
     Library:SetNotifySide(WindowInfo.NotifySide)
@@ -14123,19 +14136,30 @@ function Library:CreateWindow(WindowInfo)
         end
     end
 
-    local SideBarBetaEnabled = WindowInfo.SideBarAllowBeta == true and not IsTopbarTabs
+    local SideBarBetaEnabled = WindowInfo.SideBarAllowBeta == true
+        and WindowInfo.SideBarDockDetached ~= false
+        and not IsTopbarTabs
     local SideBarDocked = false
     local SideBarDockSide = "Left"
     local SideBarDockSavedPosition = MainFrame.Position
     local SideBarDockSavedAnchorPoint = MainFrame.AnchorPoint
+    local SideBarDockSavedTabsParent = Tabs.Parent
+    local SideBarDockSavedTabsPosition = Tabs.Position
+    local SideBarDockSavedTabsSize = Tabs.Size
+    local SideBarDockSavedTabsZIndex = Tabs.ZIndex
+    local SideBarDockSavedDividerVisible = DividerLine.Visible
+    local SideBarDockSavedContainerPosition = Container.Position
+    local SideBarDockSavedContainerSize = Container.Size
+    local SideBarDockSavedTitleHolderSize = TitleHolder.Size
+    local SideBarDockSavedRightWrapperSize = RightWrapper.Size
+    local SideBarDockFrame
+    local SideBarDockContent
     local SideBarDockHandle
-    local SideBarDockHandleIcon
     local SideBarDockHandleStroke
     local SideBarDockHandleGlow
     local SideBarDockHandleDragging = false
     local SideBarDockHandleMoved = false
     local SideBarDockHandleStartPos
-    local SideBarDockHandleStartWidth
     local SideBarDockHandleChanged
 
     local function AllVisibleTabsHaveIcons()
@@ -14155,37 +14179,48 @@ function Library:CreateWindow(WindowInfo)
         return VisibleTabCount > 0
     end
 
-    local function GetSideBarDockHandleIcon()
-        local IconName = IsCompact and "chevron-right" or "chevron-left"
-        return Library:GetIcon(IconName)
+    local function GetDetachedSideBarPosition()
+        local DockWidth = WindowInfo.SideBarDockWidth
+        local OffsetX = (MainFrame.Size.X.Offset / 2)
+            + WindowInfo.SideBarDockGap
+            + WindowInfo.SideBarDockMargin
+            + (DockWidth / 2)
+        if SideBarDockSide == "Left" then
+            OffsetX = -OffsetX
+        end
+
+        return UDim2.new(0.5, math.floor(OffsetX + 0.5), 0.5, 0)
     end
 
     local function RefreshSideBarDockHandle()
-        if not SideBarDockHandle then
+        if not SideBarDockFrame then
             return
         end
 
         local CanUse = SideBarBetaEnabled and AllVisibleTabsHaveIcons()
-        SideBarDockHandle.Visible = CanUse and SideBarDocked and WindowInfo.SideBarDockHandle ~= false
-        if not SideBarDockHandle.Visible then
+        SideBarDockFrame.Visible = CanUse and SideBarDocked and Library.Toggled
+        if not CanUse or not SideBarDocked then
+            if SideBarDockHandle then
+                SideBarDockHandle.Visible = false
+            end
             return
         end
 
-        local Icon = GetSideBarDockHandleIcon()
-        if Icon and SideBarDockHandleIcon then
-            SideBarDockHandleIcon.Image = Icon.Url
-            SideBarDockHandleIcon.ImageRectOffset = Icon.ImageRectOffset
-            SideBarDockHandleIcon.ImageRectSize = Icon.ImageRectSize
-        end
+        SideBarDockFrame.Position = GetDetachedSideBarPosition()
+        SideBarDockFrame.Size = UDim2.new(0, WindowInfo.SideBarDockWidth, 0, MainFrame.Size.Y.Offset)
 
-        local Width = Window:GetSidebarWidth()
-        SideBarDockHandle.Position = UDim2.new(0, Width + WindowInfo.SideBarDockHandleOffset, 0.5, 0)
+        if SideBarDockHandle then
+            SideBarDockHandle.Visible = WindowInfo.SideBarDockHandle ~= false and Library.Toggled
+            SideBarDockHandle.AnchorPoint = Vector2.new(SideBarDockSide == "Left" and 1 or 0, 0.5)
+            SideBarDockHandle.Position = SideBarDockSide == "Left" and UDim2.new(1, -2, 0.5, 0)
+                or UDim2.new(0, 2, 0.5, 0)
+        end
 
         if SideBarDockHandleStroke then
-            SideBarDockHandleStroke.Transparency = IsCompact and 0.1 or 0.2
+            SideBarDockHandleStroke.Transparency = 0.2
         end
         if SideBarDockHandleGlow then
-            Library:SetShadowGlowTransparency(SideBarDockHandleGlow, IsCompact and 0.82 or 0.9)
+            Library:SetShadowGlowTransparency(SideBarDockHandleGlow, 0.82)
         end
     end
 
@@ -14201,6 +14236,8 @@ function Library:CreateWindow(WindowInfo)
 
     Window.IsSidebarDocked = Window.IsSideBarDocked
 
+    local ApplyCompact
+
     function Window:SetSideBarDocked(Docked: boolean, Side: string?)
         if Docked and not Window:CanUseSideBarBeta() then
             return false
@@ -14212,15 +14249,36 @@ function Library:CreateWindow(WindowInfo)
         if Docked and not SideBarDocked then
             SideBarDockSavedPosition = MainFrame.Position
             SideBarDockSavedAnchorPoint = MainFrame.AnchorPoint
+            SideBarDockSavedTabsParent = Tabs.Parent
+            SideBarDockSavedTabsPosition = Tabs.Position
+            SideBarDockSavedTabsSize = Tabs.Size
+            SideBarDockSavedTabsZIndex = Tabs.ZIndex
+            SideBarDockSavedDividerVisible = DividerLine.Visible
+            SideBarDockSavedContainerPosition = Container.Position
+            SideBarDockSavedContainerSize = Container.Size
+            SideBarDockSavedTitleHolderSize = TitleHolder.Size
+            SideBarDockSavedRightWrapperSize = RightWrapper.Size
         end
 
         SideBarDocked = Docked
         SideBarDockSide = Side
 
         if Docked then
-            if WindowInfo.SideBarDockAutoCompact ~= false then
-                Window:SetSidebarWidth(WindowInfo.SidebarCompactWidth)
+            if SideBarDockContent then
+                Tabs.Parent = SideBarDockContent
+                Tabs.Position = UDim2.fromScale(0, 0)
+                Tabs.Size = UDim2.fromScale(1, 1)
+                Tabs.ZIndex = SideBarDockFrame and SideBarDockFrame.ZIndex + 1 or Tabs.ZIndex
             end
+
+            DividerLine.Visible = false
+            Container.Position = IsTopbarTabs and Container.Position or UDim2.new(1, 0, 0, 49)
+            Container.Size = IsTopbarTabs and Container.Size or UDim2.new(1, 0, 1, -70)
+            TitleHolder.Size = UDim2.new(0, math.min(220, math.max(144, LastExpandedWidth)), 1, 0)
+            RightWrapper.Size = UDim2.new(1, -TitleHolder.Size.X.Offset - 57 - 1, 1, -16)
+
+            IsCompact = true
+            ApplyCompact()
 
             if WindowInfo.SideBarDockCenterPage ~= false then
                 MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -14229,10 +14287,22 @@ function Library:CreateWindow(WindowInfo)
                 }):Play()
             end
         else
+            Tabs.Parent = SideBarDockSavedTabsParent or MainFrame
+            Tabs.Position = SideBarDockSavedTabsPosition
+            Tabs.Size = SideBarDockSavedTabsSize
+            Tabs.ZIndex = SideBarDockSavedTabsZIndex
+            DividerLine.Visible = SideBarDockSavedDividerVisible
+            Container.Position = SideBarDockSavedContainerPosition
+            Container.Size = SideBarDockSavedContainerSize
+            TitleHolder.Size = SideBarDockSavedTitleHolderSize
+            RightWrapper.Size = SideBarDockSavedRightWrapperSize
+
             MainFrame.AnchorPoint = SideBarDockSavedAnchorPoint
             TweenService:Create(MainFrame, TweenInfo.new(0.24, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
                 Position = SideBarDockSavedPosition,
             }):Play()
+
+            ApplyCompact()
         end
 
         RefreshSideBarDockHandle()
@@ -14247,15 +14317,15 @@ function Library:CreateWindow(WindowInfo)
 
     Window.ToggleSidebarDock = Window.ToggleSideBarDock
 
-    local function ApplyCompact()
-        IsCompact = Window:GetSidebarWidth() == WindowInfo.SidebarCompactWidth
+    ApplyCompact = function()
+        IsCompact = SideBarDocked or Window:GetSidebarWidth() == WindowInfo.SidebarCompactWidth
         if WindowInfo.DisableCompactingSnap then
-            IsCompact = Window:GetSidebarWidth() <= WindowInfo.CompactWidthActivation
+            IsCompact = SideBarDocked or Window:GetSidebarWidth() <= WindowInfo.CompactWidthActivation
         end
 
-        WindowTitle.Visible = not IsCompact
+        WindowTitle.Visible = SideBarDocked or not IsCompact
         if not WindowInfo.Icon then
-            WindowIcon.Visible = IsCompact
+            WindowIcon.Visible = IsCompact and not SideBarDocked
         end
 
         for _, Button in Library.TabButtons do
@@ -14283,11 +14353,25 @@ function Library:CreateWindow(WindowInfo)
     end
 
     function Window:GetSidebarWidth()
+        if SideBarDocked and SideBarDockFrame then
+            return SideBarDockFrame.Size.X.Offset
+        end
+
         return Tabs.Size.X.Offset
     end
 
     function Window:SetSidebarWidth(Width)
         if IsTopbarTabs then
+            return
+        end
+
+        if SideBarDocked and SideBarDockFrame then
+            WindowInfo.SideBarDockWidth = math.max(44, tonumber(Width) or WindowInfo.SideBarDockWidth)
+            SideBarDockFrame.Size = UDim2.new(0, WindowInfo.SideBarDockWidth, 0, MainFrame.Size.Y.Offset)
+            Tabs.Size = UDim2.fromScale(1, 1)
+            IsCompact = true
+            ApplyCompact()
+            RefreshSideBarDockHandle()
             return
         end
 
@@ -14330,18 +14414,82 @@ function Library:CreateWindow(WindowInfo)
     end
 
     if SideBarBetaEnabled then
+        SideBarDockFrame = New("Frame", {
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            BackgroundColor3 = "BackgroundColor",
+            BackgroundTransparency = 0,
+            ClipsDescendants = false,
+            Position = GetDetachedSideBarPosition(),
+            Size = UDim2.new(0, WindowInfo.SideBarDockWidth, 0, MainFrame.Size.Y.Offset),
+            Visible = false,
+            ZIndex = MainFrame.ZIndex + 8,
+            Parent = ScreenGui,
+        })
+        table.insert(
+            Library.Corners,
+            New("UICorner", {
+                CornerRadius = UDim.new(0, math.max(10, WindowInfo.CornerRadius + 3)),
+                Parent = SideBarDockFrame,
+            })
+        )
+        table.insert(
+            Library.Scales,
+            New("UIScale", {
+                Parent = SideBarDockFrame,
+            })
+        )
+        Library:AddOutline(SideBarDockFrame, {
+            Color = "AccentColor",
+            Transparency = 0.22,
+            ShadowTransparency = 0.72,
+            ShadowThickness = 2,
+        })
+        SideBarDockHandleGlow = Library:AddShadowGlow(SideBarDockFrame, {
+            Name = "DetachedSideBarGlow",
+            Color = "AccentColor",
+            Transparency = 0.86,
+            Size = 16,
+            Offset = Vector2.zero,
+            ZIndex = SideBarDockFrame.ZIndex - 1,
+        })
+        Library:AddGradient(SideBarDockFrame, {
+            Color = function()
+                return ColorSequence.new({
+                    ColorSequenceKeypoint.new(0, Library:GetBetterColor(Library.Scheme.AccentColor, 18)),
+                    ColorSequenceKeypoint.new(0.45, Library.Scheme.BackgroundColor),
+                    ColorSequenceKeypoint.new(1, Library:GetBetterColor(Library.Scheme.MainColor, 4)),
+                })
+            end,
+            Rotation = 90,
+            Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 0.72),
+                NumberSequenceKeypoint.new(0.5, 0.94),
+                NumberSequenceKeypoint.new(1, 0.86),
+            }),
+        })
+
+        SideBarDockContent = New("Frame", {
+            BackgroundTransparency = 1,
+            ClipsDescendants = true,
+            Position = UDim2.fromOffset(4, 8),
+            Size = UDim2.new(1, -8, 1, -16),
+            ZIndex = SideBarDockFrame.ZIndex + 1,
+            Parent = SideBarDockFrame,
+        })
+
         SideBarDockHandle = New("TextButton", {
             Active = true,
-            AnchorPoint = Vector2.new(0.5, 0.5),
+            AnchorPoint = Vector2.new(1, 0.5),
             AutoButtonColor = false,
-            BackgroundColor3 = "MainColor",
-            BackgroundTransparency = 0.08,
-            Position = UDim2.new(0, WindowInfo.SidebarCompactWidth + WindowInfo.SideBarDockHandleOffset, 0.5, 0),
-            Size = WindowInfo.SideBarDockHandleSize,
+            BackgroundColor3 = "WhiteColor",
+            BackgroundTransparency = 0.06,
+            BorderSizePixel = 0,
+            Position = UDim2.new(1, -2, 0.5, 0),
+            Size = WindowInfo.SideBarDockGrabSize,
             Text = "",
             Visible = false,
-            ZIndex = 55,
-            Parent = MainFrame,
+            ZIndex = SideBarDockFrame.ZIndex + 4,
+            Parent = SideBarDockFrame,
         })
         table.insert(
             Library.Corners,
@@ -14352,46 +14500,9 @@ function Library:CreateWindow(WindowInfo)
         )
         SideBarDockHandleStroke = New("UIStroke", {
             ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-            Color = "AccentColor",
-            Thickness = 1.15,
-            Transparency = 0.14,
-            Parent = SideBarDockHandle,
-        })
-        Library:AddGradient(SideBarDockHandle, {
-            Color = function()
-                return ColorSequence.new({
-                    ColorSequenceKeypoint.new(0, Library:GetBetterColor(Library.Scheme.AccentColor, 32)),
-                    ColorSequenceKeypoint.new(0.55, Library.Scheme.MainColor),
-                    ColorSequenceKeypoint.new(1, Library:GetBetterColor(Library.Scheme.BackgroundColor, 8)),
-                })
-            end,
-            Rotation = 90,
-            Transparency = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 0.28),
-                NumberSequenceKeypoint.new(0.52, 0.76),
-                NumberSequenceKeypoint.new(1, 0.92),
-            }),
-        })
-        SideBarDockHandleGlow = Library:AddShadowGlow(SideBarDockHandle, {
-            Name = "SideBarDockHandleGlow",
-            Color = "AccentColor",
-            Transparency = 0.84,
-            Size = 10,
-            Offset = Vector2.zero,
-            ZIndex = SideBarDockHandle.ZIndex - 1,
-        })
-
-        local HandleIcon = GetSideBarDockHandleIcon()
-        SideBarDockHandleIcon = New("ImageLabel", {
-            AnchorPoint = Vector2.new(0.5, 0.5),
-            BackgroundTransparency = 1,
-            Image = HandleIcon and HandleIcon.Url or "",
-            ImageColor3 = "FontColor",
-            ImageRectOffset = HandleIcon and HandleIcon.ImageRectOffset or Vector2.zero,
-            ImageRectSize = HandleIcon and HandleIcon.ImageRectSize or Vector2.zero,
-            Position = UDim2.fromScale(0.5, 0.5),
-            Size = UDim2.fromOffset(14, 14),
-            ZIndex = SideBarDockHandle.ZIndex + 1,
+            Color = "WhiteColor",
+            Thickness = 1,
+            Transparency = 0.35,
             Parent = SideBarDockHandle,
         })
 
@@ -14401,11 +14512,11 @@ function Library:CreateWindow(WindowInfo)
                 return
             end
 
-            Window:SetSidebarWidth(IsCompact and LastExpandedWidth or WindowInfo.SidebarCompactWidth)
+            Window:Toggle(false)
         end))
 
         Library:GiveSignal(SideBarDockHandle.InputBegan:Connect(function(Input: InputObject)
-            if not IsClickInput(Input) or not Window:CanUseSideBarBeta() then
+            if not IsClickInput(Input) or not Window:CanUseSideBarBeta() or not SideBarDocked then
                 return
             end
 
@@ -14413,7 +14524,6 @@ function Library:CreateWindow(WindowInfo)
             SideBarDockHandleDragging = true
             SideBarDockHandleMoved = false
             SideBarDockHandleStartPos = Vector2.new(Input.Position.X, Input.Position.Y)
-            SideBarDockHandleStartWidth = Window:GetSidebarWidth()
 
             SideBarDockHandleChanged = Input.Changed:Connect(function()
                 if Input.UserInputState ~= Enum.UserInputState.End then
@@ -16778,6 +16888,9 @@ function Library:CreateWindow(WindowInfo)
         end
 
         MainFrame.Visible = Library.Toggled
+        if SideBarDockFrame then
+            SideBarDockFrame.Visible = Library.Toggled and SideBarDocked and Window:CanUseSideBarBeta()
+        end
         if DynamicIslandController then
             DynamicIslandController:SetActive(Library.Toggled)
         end
@@ -16897,13 +17010,13 @@ function Library:CreateWindow(WindowInfo)
                 SideBarDockHandleMoved = true
             end
 
-            local Width = SideBarDockHandleStartWidth + Delta.X
-            local Threshold = (WindowInfo.MinSidebarWidth + WindowInfo.SidebarCompactWidth)
-                * WindowInfo.SidebarCollapseThreshold
-            if Width > Threshold then
-                Window:SetSidebarWidth(math.max(Width, WindowInfo.MinSidebarWidth))
-            else
-                Window:SetSidebarWidth(WindowInfo.SidebarCompactWidth)
+            local HideDistance = math.max(24, WindowInfo.SideBarDockThreshold * 0.55)
+            local HideDelta = SideBarDockSide == "Left" and -Delta.X or Delta.X
+            if HideDelta >= HideDistance then
+                SideBarDockHandleMoved = true
+                SideBarDockHandleDragging = false
+                Library.CantDragForced = false
+                Window:Toggle(false)
             end
         end))
     end
