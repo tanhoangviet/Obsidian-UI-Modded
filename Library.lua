@@ -770,6 +770,11 @@ local Templates = {
         SideBarDockGrabSize = UDim2.fromOffset(5, 48),
         SideBarDockGrabHitSize = UDim2.fromOffset(28, 92),
         SideBarDockHiddenTransparency = 0.6,
+        SideBarDockDestroyDynamicIsland = true,
+        SideBarDockAnimationTime = 0.32,
+        SideBarDockGlass = true,
+        SideBarDockTabBackground = false,
+        SideBarDockTabSize = 44,
         MinContainerWidth = 256,
 
         --// Snapping \\--
@@ -11587,6 +11592,8 @@ function Library:CreateWindow(WindowInfo)
     end
     WindowInfo.SideBarDockHiddenTransparency =
         math.clamp(tonumber(WindowInfo.SideBarDockHiddenTransparency) or 0.6, 0, 1)
+    WindowInfo.SideBarDockAnimationTime = math.clamp(tonumber(WindowInfo.SideBarDockAnimationTime) or 0.32, 0.12, 0.8)
+    WindowInfo.SideBarDockTabSize = math.clamp(tonumber(WindowInfo.SideBarDockTabSize) or 44, 36, 58)
 
     Library.CornerRadius = WindowInfo.CornerRadius
     Library:SetNotifySide(WindowInfo.NotifySide)
@@ -13156,6 +13163,27 @@ function Library:CreateWindow(WindowInfo)
         Library:OnUnload(StopDynamicIslandGradientAnimation)
         PlayDynamicIslandGradientAnimation()
 
+        function Controller:Destroy()
+            StopDynamicIslandGradientAnimation()
+            IdleToken += 1
+            PressToken += 1
+            ActionMenuToken += 1
+            ContentVisibilityToken += 1
+            ActionMenuOpen = false
+            IsPressing = false
+
+            pcall(function()
+                PanelGrabBar:Destroy()
+            end)
+            pcall(function()
+                Island:Destroy()
+            end)
+
+            if DynamicIslandController == Controller then
+                DynamicIslandController = nil
+            end
+        end
+
         function Controller:Wake()
             IdleToken += 1
             if IsIdle then
@@ -14164,8 +14192,11 @@ function Library:CreateWindow(WindowInfo)
     local SideBarDockSavedTabZIndexes = {}
     local SideBarDockFrame
     local SideBarDockContent
+    local SideBarDockScale
     local SideBarDockFrameOutline
     local SideBarDockFrameShadowOutline
+    local SideBarDockGlassLayer
+    local SideBarDockGlassShine
     local SideBarDockHandle
     local SideBarDockHandleVisual
     local SideBarDockHandleStroke
@@ -14173,7 +14204,9 @@ function Library:CreateWindow(WindowInfo)
     local SideBarDockHandleDragging = false
     local SideBarDockHandleMoved = false
     local SideBarDockHandleStartPos
+    local SideBarDockHandleLastDelta = Vector2.zero
     local SideBarDockHandleChanged
+    local SideBarDockDragOffset = 0
 
     local function AllVisibleTabsHaveIcons()
         local VisibleTabCount = 0
@@ -14201,6 +14234,7 @@ function Library:CreateWindow(WindowInfo)
         if SideBarDockSide == "Left" then
             OffsetX = -OffsetX
         end
+        OffsetX += SideBarDockDragOffset
 
         return UDim2.new(0.5, math.floor(OffsetX + 0.5), 0.5, 0)
     end
@@ -14214,6 +14248,29 @@ function Library:CreateWindow(WindowInfo)
         if Visible then
             DynamicIslandController:SetActive(Library.Toggled)
         end
+    end
+
+    local function DestroySideBarDockDynamicIsland()
+        if not DynamicIslandController then
+            return
+        end
+
+        if WindowInfo.SideBarDockDestroyDynamicIsland ~= false and DynamicIslandController.Destroy then
+            DynamicIslandController:Destroy()
+        else
+            DynamicIslandController:SetVisible(false)
+        end
+    end
+
+    local function RestoreSideBarDockDynamicIsland()
+        if
+            WindowInfo.SideBarDockDestroyDynamicIsland ~= false
+            and UseDynamicIslandToggle
+            and not DynamicIslandController
+        then
+            DynamicIslandController = CreateDynamicIslandToggle()
+        end
+        SetSideBarDockDynamicIslandVisible(true)
     end
 
     local function LiftSideBarTabZIndexes(BaseZIndex: number)
@@ -14265,6 +14322,12 @@ function Library:CreateWindow(WindowInfo)
         if SideBarDockContent then
             SideBarDockContent.Visible = Library.Toggled and not SideBarDockHidden
         end
+        if SideBarDockGlassLayer then
+            SideBarDockGlassLayer.Visible = not SideBarDockHidden
+        end
+        if SideBarDockGlassShine then
+            SideBarDockGlassShine.Visible = not SideBarDockHidden
+        end
         if SideBarDockFrameOutline then
             SideBarDockFrameOutline.Transparency = SideBarDockHidden and 1 or 0.22
         end
@@ -14292,6 +14355,85 @@ function Library:CreateWindow(WindowInfo)
         end
         if SideBarDockHandleGlow then
             Library:SetShadowGlowTransparency(SideBarDockHandleGlow, SideBarDockHidden and 1 or 0.82)
+        end
+    end
+
+    local function PlaySideBarDockEnterAnimation()
+        if not SideBarDockFrame or SideBarDockHidden then
+            return
+        end
+
+        local BasePosition = GetDetachedSideBarPosition()
+        local Direction = SideBarDockSide == "Left" and -1 or 1
+        local TweenSpec =
+            TweenInfo.new(WindowInfo.SideBarDockAnimationTime, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+
+        SideBarDockFrame.Position = UDim2.new(
+            BasePosition.X.Scale,
+            BasePosition.X.Offset + (Direction * 24),
+            BasePosition.Y.Scale,
+            BasePosition.Y.Offset
+        )
+        SideBarDockFrame.BackgroundTransparency = 1
+        if SideBarDockScale then
+            SideBarDockScale.Scale = 0.92
+            TweenService:Create(SideBarDockScale, TweenSpec, {
+                Scale = 1,
+            }):Play()
+        end
+        if SideBarDockFrameOutline then
+            SideBarDockFrameOutline.Transparency = 1
+        end
+        if SideBarDockFrameShadowOutline then
+            SideBarDockFrameShadowOutline.Transparency = 1
+        end
+
+        TweenService:Create(SideBarDockFrame, TweenSpec, {
+            BackgroundTransparency = 0,
+            Position = BasePosition,
+        }):Play()
+        if SideBarDockFrameOutline then
+            TweenService:Create(SideBarDockFrameOutline, TweenSpec, {
+                Transparency = 0.22,
+            }):Play()
+        end
+        if SideBarDockFrameShadowOutline then
+            TweenService:Create(SideBarDockFrameShadowOutline, TweenSpec, {
+                Transparency = 0.72,
+            }):Play()
+        end
+    end
+
+    local function GetSideBarDockDragPull(Delta: Vector2)
+        local DirectionDelta = SideBarDockSide == "Left" and Delta.X or -Delta.X
+        return SideBarDockHidden and DirectionDelta or -DirectionDelta
+    end
+
+    local function ApplySideBarDockDragPreview(Delta: Vector2)
+        local Pull = math.max(0, GetSideBarDockDragPull(Delta))
+        local MaxOffset = WindowInfo.SideBarDockWidth + WindowInfo.SideBarDockGap + WindowInfo.SideBarDockMargin
+        local Offset = math.clamp(Pull, 0, MaxOffset)
+
+        if SideBarDockSide == "Left" then
+            SideBarDockDragOffset = SideBarDockHidden and Offset or -Offset
+        else
+            SideBarDockDragOffset = SideBarDockHidden and -Offset or Offset
+        end
+
+        RefreshSideBarDockHandle()
+    end
+
+    local function FinishSideBarDockHandleDrag()
+        local DragDistance = math.max(Library.IsMobile and 18 or 24, WindowInfo.SideBarDockThreshold * 0.45)
+        local ShouldSwitch = GetSideBarDockDragPull(SideBarDockHandleLastDelta) >= DragDistance
+
+        SideBarDockDragOffset = 0
+        SideBarDockHandleLastDelta = Vector2.zero
+
+        if ShouldSwitch then
+            Window:SetSideBarDockHidden(not SideBarDockHidden)
+        else
+            RefreshSideBarDockHandle()
         end
     end
 
@@ -14348,8 +14490,8 @@ function Library:CreateWindow(WindowInfo)
                 Tabs.Parent = SideBarDockContent
                 Tabs.Position = UDim2.fromScale(0, 0)
                 Tabs.Size = UDim2.fromScale(1, 1)
-                Tabs.ZIndex = SideBarDockFrame and SideBarDockFrame.ZIndex + 1 or Tabs.ZIndex
-                LiftSideBarTabZIndexes(SideBarDockFrame and SideBarDockFrame.ZIndex + 2 or 50)
+                Tabs.ZIndex = SideBarDockFrame and SideBarDockFrame.ZIndex + 4 or Tabs.ZIndex
+                LiftSideBarTabZIndexes(SideBarDockFrame and SideBarDockFrame.ZIndex + 5 or 50)
             end
 
             DividerLine.Visible = false
@@ -14368,7 +14510,7 @@ function Library:CreateWindow(WindowInfo)
                 }):Play()
             end
 
-            SetSideBarDockDynamicIslandVisible(false)
+            DestroySideBarDockDynamicIsland()
         else
             RestoreSideBarTabZIndexes()
             Tabs.Parent = SideBarDockSavedTabsParent or MainFrame
@@ -14387,11 +14529,14 @@ function Library:CreateWindow(WindowInfo)
             }):Play()
 
             ApplyCompact()
-            SetSideBarDockDynamicIslandVisible(true)
+            RestoreSideBarDockDynamicIsland()
         end
 
         MainFrame.Visible = Library.Toggled and not SideBarDockHidden
         RefreshSideBarDockHandle()
+        if Docked then
+            PlaySideBarDockEnterAnimation()
+        end
         return true
     end
 
@@ -14411,7 +14556,7 @@ function Library:CreateWindow(WindowInfo)
         if SideBarDockHidden then
             TooltipLabel.Visible = false
         end
-        SetSideBarDockDynamicIslandVisible(false)
+        DestroySideBarDockDynamicIsland()
         RefreshSideBarDockHandle()
         return true
     end
@@ -14440,6 +14585,12 @@ function Library:CreateWindow(WindowInfo)
                 continue
             end
 
+            if Button.Button then
+                Button.Button.Size = SideBarDocked and UDim2.new(1, 0, 0, WindowInfo.SideBarDockTabSize) or Button.Size
+                if SideBarDocked and WindowInfo.SideBarDockTabBackground == false then
+                    Button.Button.BackgroundTransparency = 1
+                end
+            end
             Button.Label.Visible = not IsCompact
             Button.Padding.PaddingBottom = UDim.new(0, IsCompact and 6 or 11)
             Button.Padding.PaddingLeft = UDim.new(0, IsCompact and 6 or 12)
@@ -14539,12 +14690,10 @@ function Library:CreateWindow(WindowInfo)
                 Parent = SideBarDockFrame,
             })
         )
-        table.insert(
-            Library.Scales,
-            New("UIScale", {
-                Parent = SideBarDockFrame,
-            })
-        )
+        SideBarDockScale = New("UIScale", {
+            Parent = SideBarDockFrame,
+        })
+        table.insert(Library.Scales, SideBarDockScale)
         SideBarDockFrameOutline, SideBarDockFrameShadowOutline = Library:AddOutline(SideBarDockFrame, {
             Color = "AccentColor",
             Transparency = 0.22,
@@ -14575,12 +14724,77 @@ function Library:CreateWindow(WindowInfo)
             }),
         })
 
+        if WindowInfo.SideBarDockGlass ~= false then
+            SideBarDockGlassLayer = New("Frame", {
+                BackgroundColor3 = "WhiteColor",
+                BackgroundTransparency = 0.92,
+                BorderSizePixel = 0,
+                Position = UDim2.fromOffset(1, 1),
+                Size = UDim2.new(1, -2, 1, -2),
+                ZIndex = SideBarDockFrame.ZIndex + 1,
+                Parent = SideBarDockFrame,
+            })
+            table.insert(
+                Library.Corners,
+                New("UICorner", {
+                    CornerRadius = UDim.new(0, math.max(8, WindowInfo.CornerRadius + 2)),
+                    Parent = SideBarDockGlassLayer,
+                })
+            )
+            Library:AddGradient(SideBarDockGlassLayer, {
+                Color = function()
+                    return ColorSequence.new({
+                        ColorSequenceKeypoint.new(0, Library.Scheme.WhiteColor),
+                        ColorSequenceKeypoint.new(0.48, Library:GetBetterColor(Library.Scheme.MainColor, 12)),
+                        ColorSequenceKeypoint.new(1, Library.Scheme.AccentColor),
+                    })
+                end,
+                Rotation = 18,
+                Transparency = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0, 0.76),
+                    NumberSequenceKeypoint.new(0.5, 0.96),
+                    NumberSequenceKeypoint.new(1, 0.84),
+                }),
+            })
+
+            SideBarDockGlassShine = New("Frame", {
+                BackgroundColor3 = "WhiteColor",
+                BackgroundTransparency = 0.9,
+                BorderSizePixel = 0,
+                Position = UDim2.fromScale(-0.12, 0),
+                Size = UDim2.new(0.55, 0, 1, 0),
+                ZIndex = SideBarDockFrame.ZIndex + 2,
+                Parent = SideBarDockFrame,
+            })
+            table.insert(
+                Library.Corners,
+                New("UICorner", {
+                    CornerRadius = UDim.new(1, 0),
+                    Parent = SideBarDockGlassShine,
+                })
+            )
+            Library:AddGradient(SideBarDockGlassShine, {
+                Color = function()
+                    return ColorSequence.new({
+                        ColorSequenceKeypoint.new(0, Library.Scheme.WhiteColor),
+                        ColorSequenceKeypoint.new(1, Library.Scheme.WhiteColor),
+                    })
+                end,
+                Rotation = 90,
+                Transparency = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0, 1),
+                    NumberSequenceKeypoint.new(0.45, 0.74),
+                    NumberSequenceKeypoint.new(1, 1),
+                }),
+            })
+        end
+
         SideBarDockContent = New("Frame", {
             BackgroundTransparency = 1,
             ClipsDescendants = true,
             Position = UDim2.fromOffset(4, 8),
             Size = UDim2.new(1, -8, 1, -16),
-            ZIndex = SideBarDockFrame.ZIndex + 1,
+            ZIndex = SideBarDockFrame.ZIndex + 3,
             Parent = SideBarDockFrame,
         })
 
@@ -14640,12 +14854,15 @@ function Library:CreateWindow(WindowInfo)
             SideBarDockHandleDragging = true
             SideBarDockHandleMoved = false
             SideBarDockHandleStartPos = Vector2.new(Input.Position.X, Input.Position.Y)
+            SideBarDockHandleLastDelta = Vector2.zero
+            SideBarDockDragOffset = 0
 
             SideBarDockHandleChanged = Input.Changed:Connect(function()
                 if Input.UserInputState ~= Enum.UserInputState.End then
                     return
                 end
 
+                FinishSideBarDockHandleDrag()
                 Library.CantDragForced = false
                 SideBarDockHandleDragging = false
                 if SideBarDockHandleChanged and SideBarDockHandleChanged.Connected then
@@ -14746,6 +14963,8 @@ function Library:CreateWindow(WindowInfo)
             end
 
             table.insert(Library.TabButtons, {
+                Button = TabButton,
+                Size = TabButton.Size,
                 Label = TabLabel,
                 Padding = ButtonPadding,
                 Icon = TabIcon,
@@ -15785,6 +16004,18 @@ function Library:CreateWindow(WindowInfo)
 
         Tab.addcard = Tab.AddCard
 
+        local function GetTabButtonTransparency(Selected: boolean)
+            if SideBarDocked and WindowInfo.SideBarDockTabBackground == false then
+                return 1
+            end
+
+            if Selected then
+                return GetBackgroundImageSurfaceTransparency(IsCardTabs and 0.02 or 0, "Panel")
+            end
+
+            return GetBackgroundImageSurfaceTransparency(IsCardTabs and 0.1 or 1, "Panel")
+        end
+
         function Tab:Hover(Hovering)
             if Library.ActiveTab == Tab then
                 return
@@ -15805,11 +16036,9 @@ function Library:CreateWindow(WindowInfo)
                 Library.ActiveTab:Hide()
             end
 
-            TweenService
-                :Create(TabButton, Library.TweenInfo, {
-                    BackgroundTransparency = GetBackgroundImageSurfaceTransparency(IsCardTabs and 0.02 or 0, "Panel"),
-                })
-                :Play()
+            TweenService:Create(TabButton, Library.TweenInfo, {
+                BackgroundTransparency = GetTabButtonTransparency(true),
+            }):Play()
             TweenService:Create(TabLabel, Library.TweenInfo, {
                 TextTransparency = 0,
             }):Play()
@@ -15834,11 +16063,9 @@ function Library:CreateWindow(WindowInfo)
         end
 
         function Tab:Hide()
-            TweenService
-                :Create(TabButton, Library.TweenInfo, {
-                    BackgroundTransparency = GetBackgroundImageSurfaceTransparency(IsCardTabs and 0.1 or 1, "Panel"),
-                })
-                :Play()
+            TweenService:Create(TabButton, Library.TweenInfo, {
+                BackgroundTransparency = GetTabButtonTransparency(false),
+            }):Play()
             TweenService:Create(TabLabel, Library.TweenInfo, {
                 TextTransparency = 0.5,
             }):Play()
@@ -15879,7 +16106,7 @@ function Library:CreateWindow(WindowInfo)
 
         Library.Tabs[Name] = Tab
         if SideBarDocked and SideBarDockFrame then
-            LiftSideBarTabZIndexes(SideBarDockFrame.ZIndex + 2)
+            LiftSideBarTabZIndexes(SideBarDockFrame.ZIndex + 5)
         end
         RefreshSideBarDockHandle()
 
@@ -17018,7 +17245,7 @@ function Library:CreateWindow(WindowInfo)
             DynamicIslandController:SetVisible(WindowInfo.ShowMobileButtons ~= false)
             DynamicIslandController:SetActive(Library.Toggled)
         elseif DynamicIslandController then
-            DynamicIslandController:SetVisible(false)
+            DestroySideBarDockDynamicIsland()
         end
 
         if WindowInfo.UnlockMouseWhileOpen then
@@ -17128,6 +17355,8 @@ function Library:CreateWindow(WindowInfo)
             if not (ScreenGui and ScreenGui.Parent) then
                 SideBarDockHandleDragging = false
                 Library.CantDragForced = false
+                SideBarDockDragOffset = 0
+                SideBarDockHandleLastDelta = Vector2.zero
                 return
             end
 
@@ -17136,17 +17365,8 @@ function Library:CreateWindow(WindowInfo)
                 SideBarDockHandleMoved = true
             end
 
-            local DragDistance = math.max(Library.IsMobile and 18 or 24, WindowInfo.SideBarDockThreshold * 0.45)
-            local DirectionDelta = SideBarDockSide == "Left" and Delta.X or -Delta.X
-            local ShouldSwitch = if SideBarDockHidden
-                then DirectionDelta >= DragDistance
-                else -DirectionDelta >= DragDistance
-            if ShouldSwitch then
-                SideBarDockHandleMoved = true
-                SideBarDockHandleDragging = false
-                Library.CantDragForced = false
-                Window:SetSideBarDockHidden(not SideBarDockHidden)
-            end
+            SideBarDockHandleLastDelta = Delta
+            ApplySideBarDockDragPreview(Delta)
         end))
     end
 
