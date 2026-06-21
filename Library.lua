@@ -3704,6 +3704,18 @@ function Library:AddContextMenu(
         return typeof(Offset) == "function" and Offset() or Offset
     end
 
+    local function GetMenuPadding()
+        local PaddingX = 0
+        local PaddingY = 0
+        local Padding = Menu:FindFirstChildOfClass("UIPadding")
+        if Padding then
+            PaddingX = Padding.PaddingLeft.Offset + Padding.PaddingRight.Offset
+            PaddingY = Padding.PaddingTop.Offset + Padding.PaddingBottom.Offset
+        end
+
+        return PaddingX, PaddingY
+    end
+
     local function GetViewportClampBounds()
         local Camera = workspace.CurrentCamera
         local ViewportSize = Camera and Camera.ViewportSize or Vector2.new(800, 600)
@@ -3731,14 +3743,33 @@ function Library:AddContextMenu(
         local TargetY = math.floor(Holder.AbsolutePosition.Y + OffsetValues[2])
 
         local MinX, MinY, MaxX, MaxY = GetViewportClampBounds()
+        local PaddingX, PaddingY = GetMenuPadding()
         local AbsoluteSize = Menu.AbsoluteSize
         local Width = AbsoluteSize.X > 0 and AbsoluteSize.X or MenuSize.X.Offset
         local Height = AbsoluteSize.Y > 0 and AbsoluteSize.Y or MenuSize.Y.Offset
+        if Table.List then
+            Width = math.max(Width, Table.List.AbsoluteContentSize.X + PaddingX)
+            Height = math.max(Height, Table.List.AbsoluteContentSize.Y + PaddingY)
+        end
 
         local X = math.clamp(TargetX, MinX, math.max(MinX, MaxX - Width))
         local Y = math.clamp(TargetY, MinY, math.max(MinY, MaxY - Height))
 
         Menu.Position = UDim2.fromOffset(X, Y)
+    end
+
+    local function QueueReposition()
+        task.defer(function()
+            if Table.Active then
+                Table:Reposition()
+            end
+        end)
+        task.spawn(function()
+            RunService.RenderStepped:Wait()
+            if Table.Active then
+                Table:Reposition()
+            end
+        end)
     end
 
     function Table:Open()
@@ -3757,11 +3788,7 @@ function Library:AddContextMenu(
         end
 
         Menu.Visible = true
-        task.defer(function()
-            if Table.Active then
-                Table:Reposition()
-            end
-        end)
+        QueueReposition()
 
         Table.Signal = Holder:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
             Table:Reposition()
@@ -3798,6 +3825,7 @@ function Library:AddContextMenu(
         Menu.Size = ResolveMenuSize()
         if Table.Active then
             Table:Reposition()
+            QueueReposition()
         end
     end
 
@@ -4935,8 +4963,9 @@ do
             local MinimumMapSize = math.min(BaseMinimumMapSize, math.max(48, MaxMapSize))
             local MapSize = math.max(MinimumMapSize, math.min(TargetMapSize, MaxMapSize))
             local MenuWidth = MapSize + Padding + (SliderCount * SliderWidth) + (SliderCount * Gap)
+            local MenuHeight = 12 + MapSize + 20 + 8 + (typeof(ColorPicker.Title) == "string" and 16 or 0)
 
-            return math.floor(MapSize), math.floor(MenuWidth), SliderWidth
+            return math.floor(MapSize), math.floor(MenuWidth), SliderWidth, math.floor(MenuHeight)
         end
 
         local function ApplyColorMenuMetrics()
@@ -4967,6 +4996,29 @@ do
                 return UDim2.fromOffset(MenuWidth, 0)
             end,
             function()
+                local _, _, _, MenuHeight = GetColorMenuMetrics()
+                local Camera = workspace.CurrentCamera
+                local ViewportSize = Camera and Camera.ViewportSize or Vector2.new(800, 600)
+                local TopInset = Vector2.zero
+                local BottomInset = Vector2.zero
+                pcall(function()
+                    local TopLeft, BottomRight = GuiService:GetGuiInset()
+                    TopInset = TopLeft or Vector2.zero
+                    BottomInset = BottomRight or Vector2.zero
+                end)
+
+                local Margin = Library.IsMobile and 10 or 6
+                local BottomLimit = ViewportSize.Y - BottomInset.Y - Margin
+                local TopLimit = TopInset.Y + Margin
+                local BelowY = Holder.AbsolutePosition.Y + Holder.AbsoluteSize.Y + 1.5
+                local AboveOffset = -MenuHeight - 1.5
+                local HasRoomBelow = BelowY + MenuHeight <= BottomLimit
+                local HasRoomAbove = Holder.AbsolutePosition.Y + AboveOffset >= TopLimit
+
+                if not HasRoomBelow and HasRoomAbove then
+                    return { 0.5, AboveOffset }
+                end
+
                 return { 0.5, Holder.AbsoluteSize.Y + 1.5 }
             end,
             1,
@@ -4984,6 +5036,25 @@ do
             end
         )
         ColorMenu.List.Padding = UDim.new(0, 8)
+        ColorMenu.Menu.BackgroundColor3 = Library.Scheme.MainColor
+        ColorMenu.Menu.BackgroundTransparency = GetBackgroundImageSurfaceTransparency(0.04, "Panel")
+        ColorMenu.Menu.ClipsDescendants = true
+        Library.Registry[ColorMenu.Menu].BackgroundColor3 = "MainColor"
+        RegisterBackgroundImageSurface(ColorMenu.Menu, 0.04, "Panel")
+        Library:AddGradient(ColorMenu.Menu, {
+            Rotation = 28,
+            Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 0.6),
+                NumberSequenceKeypoint.new(0.42, 0.94),
+                NumberSequenceKeypoint.new(1, 0.7),
+            }),
+        })
+        Library:AddShadowGlow(ColorMenu.Menu, {
+            Color = "AccentColor",
+            Transparency = 0.78,
+            Size = 12,
+            Native = false,
+        })
         ColorPicker.ColorMenu = ColorMenu
 
         New("UIPadding", {
@@ -5023,6 +5094,18 @@ do
             Size = UDim2.fromOffset(200, 200),
             Parent = ColorHolder,
         })
+        table.insert(
+            Library.Corners,
+            New("UICorner", {
+                CornerRadius = UDim.new(0, Library.CornerRadius / 2),
+                Parent = SatVipMap,
+            })
+        )
+        New("UIStroke", {
+            Color = "OutlineColor",
+            Transparency = 0.25,
+            Parent = SatVipMap,
+        })
 
         local SatVibCursor = New("Frame", {
             AnchorPoint = Vector2.new(0.5, 0.5),
@@ -5041,9 +5124,23 @@ do
 
         --// Hue
         HueSelector = New("TextButton", {
+            BackgroundColor3 = "MainColor",
+            BackgroundTransparency = 0.16,
             Size = UDim2.fromOffset(16, 200),
             Text = "",
             Parent = ColorHolder,
+        })
+        table.insert(
+            Library.Corners,
+            New("UICorner", {
+                CornerRadius = UDim.new(0, Library.CornerRadius / 2),
+                Parent = HueSelector,
+            })
+        )
+        New("UIStroke", {
+            Color = "OutlineColor",
+            Transparency = 0.25,
+            Parent = HueSelector,
         })
         New("UIGradient", {
             Color = ColorSequence.new(HueSequenceTable),
@@ -5065,11 +5162,25 @@ do
         local TransparencyColor, TransparencyCursor
         if Info.Transparency then
             TransparencySelector = New("ImageButton", {
+                BackgroundColor3 = "MainColor",
+                BackgroundTransparency = 0.16,
                 Image = CustomImageManager.GetAsset("TransparencyTexture"),
                 ScaleType = Enum.ScaleType.Tile,
                 Size = UDim2.fromOffset(16, 200),
                 TileSize = UDim2.fromOffset(8, 8),
                 Parent = ColorHolder,
+            })
+            table.insert(
+                Library.Corners,
+                New("UICorner", {
+                    CornerRadius = UDim.new(0, Library.CornerRadius / 2),
+                    Parent = TransparencySelector,
+                })
+            )
+            New("UIStroke", {
+                Color = "OutlineColor",
+                Transparency = 0.25,
+                Parent = TransparencySelector,
             })
 
             TransparencyColor = New("Frame", {
@@ -5112,6 +5223,7 @@ do
 
         local HueBox = New("TextBox", {
             BackgroundColor3 = "MainColor",
+            BackgroundTransparency = 0.14,
             ClearTextOnFocus = false,
             Size = UDim2.fromScale(1, 1),
             Text = "#??????",
@@ -5134,6 +5246,7 @@ do
 
         local RgbBox = New("TextBox", {
             BackgroundColor3 = "MainColor",
+            BackgroundTransparency = 0.14,
             ClearTextOnFocus = false,
             Size = UDim2.fromScale(1, 1),
             Text = "?, ?, ?",
@@ -6755,6 +6868,7 @@ do
             BackgroundTransparency = 0.05,
             Position = UDim2.fromScale(0, 0.5),
             Size = UDim2.fromScale(0, 1),
+            ZIndex = Switch.ZIndex + 1,
             Parent = Switch,
         })
         New("UICorner", {
@@ -6770,11 +6884,33 @@ do
             }),
         })
 
+        local SwitchTexture = New("ImageLabel", {
+            BackgroundTransparency = 1,
+            Image = CustomImageManager.GetAsset("ShinyEffect"),
+            ImageColor3 = "WhiteColor",
+            ImageTransparency = 1,
+            Position = UDim2.fromOffset(-10, -4),
+            ScaleType = Enum.ScaleType.Stretch,
+            Size = UDim2.new(1, 20, 1, 8),
+            ZIndex = Switch.ZIndex + 2,
+            Parent = Switch,
+        })
+        Library:AddGradient(SwitchTexture, {
+            Rotation = 18,
+            Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 1),
+                NumberSequenceKeypoint.new(0.35, 0.42),
+                NumberSequenceKeypoint.new(0.65, 0.64),
+                NumberSequenceKeypoint.new(1, 1),
+            }),
+        })
+
         local SwitchShine = New("Frame", {
             BackgroundColor3 = "WhiteColor",
             BackgroundTransparency = 0.9,
             Position = UDim2.fromOffset(4, 3),
             Size = UDim2.new(1, -8, 0, 7),
+            ZIndex = Switch.ZIndex + 3,
             Parent = Switch,
         })
         New("UICorner", {
@@ -6795,6 +6931,7 @@ do
             BackgroundColor3 = "FontColor",
             Position = UDim2.new(0, 3, 0.5, 0),
             Size = UDim2.fromOffset(16, 16),
+            ZIndex = Switch.ZIndex + 4,
             Parent = Switch,
         })
         New("UICorner", {
@@ -6815,6 +6952,8 @@ do
             }),
         })
 
+        local Pressed = false
+
         function Toggle:UpdateColors()
             Toggle:Display()
         end
@@ -6829,9 +6968,13 @@ do
             local TrackStrokeColor = Toggle.Value and Library.Scheme.AccentColor or Library.Scheme.OutlineColor
             local KnobColor = Toggle.Disabled and Library:GetDarkerColor(Library.Scheme.FontColor)
                 or Library.Scheme.FontColor
-            local TrackTransparency = Toggle.Disabled and 0.72 or Toggle.Value and 0.06 or 0.18
-            local StrokeTransparency = Toggle.Disabled and 0.78 or Toggle.Value and 0.1 or 0.38
-            local FillTransparency = Toggle.Disabled and 0.82 or Toggle.Value and 0.02 or 0.55
+            local PressBoost = Pressed and 0.22 or 0
+            local TrackTransparency =
+                math.clamp((Toggle.Disabled and 0.72 or Toggle.Value and 0.06 or 0.18) + PressBoost, 0, 1)
+            local StrokeTransparency =
+                math.clamp((Toggle.Disabled and 0.78 or Toggle.Value and 0.1 or 0.38) - (Pressed and 0.08 or 0), 0, 1)
+            local FillTransparency =
+                math.clamp((Toggle.Disabled and 0.82 or Toggle.Value and 0.02 or 0.55) + (Pressed and 0.16 or 0), 0, 1)
 
             SwitchGradient.Color = ColorSequence.new({
                 ColorSequenceKeypoint.new(0, Library.Scheme.AccentColor),
@@ -6874,6 +7017,9 @@ do
                 BackgroundTransparency = FillTransparency,
                 Size = Toggle.Value and UDim2.fromScale(1, 1) or UDim2.fromScale(0, 1),
             }):Play()
+            TweenService:Create(SwitchTexture, Library.TweenInfo, {
+                ImageTransparency = Toggle.Disabled and 1 or Pressed and 0.28 or 1,
+            }):Play()
             TweenService:Create(Ball, Library.TweenInfo, {
                 BackgroundColor3 = KnobColor,
                 Position = Toggle.Value and UDim2.new(1, -19, 0.5, 0) or UDim2.new(0, 3, 0.5, 0),
@@ -6915,6 +7061,7 @@ do
 
         function Toggle:SetDisabled(Disabled: boolean)
             Toggle.Disabled = Disabled
+            Pressed = false
 
             if Toggle.TooltipTable then
                 Toggle.TooltipTable.Disabled = Toggle.Disabled
@@ -6942,11 +7089,36 @@ do
             Label.Text = Text
         end
 
+        local function SetPressed(State: boolean)
+            State = State and not Toggle.Disabled
+            if Pressed == State then
+                return
+            end
+
+            Pressed = State
+            Toggle:Display()
+        end
+
+        Button.InputBegan:Connect(function(Input: InputObject)
+            if IsClickInput(Input) then
+                SetPressed(true)
+            end
+        end)
+        Button.InputEnded:Connect(function(Input: InputObject)
+            if IsMouseInput(Input) then
+                SetPressed(false)
+            end
+        end)
+        Button.MouseLeave:Connect(function()
+            SetPressed(false)
+        end)
+
         Button.MouseButton1Click:Connect(function()
             if Toggle.Disabled then
                 return
             end
 
+            SetPressed(false)
             Toggle:SetValue(not Toggle.Value)
         end)
 
