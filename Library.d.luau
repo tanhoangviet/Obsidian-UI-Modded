@@ -92,6 +92,7 @@ export type ContextMenu = {
     Open: (self: ContextMenu) -> (),
     Close: (self: ContextMenu) -> (),
     Toggle: (self: ContextMenu) -> (),
+    Reposition: (self: ContextMenu) -> (),
     SetSize: (self: ContextMenu, Size: UDim2 | () -> UDim2) -> (),
 }
 

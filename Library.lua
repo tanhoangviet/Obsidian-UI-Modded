@@ -3696,6 +3696,51 @@ function Library:AddContextMenu(
         })
     end
 
+    local function ResolveMenuSize()
+        return typeof(Table.Size) == "function" and Table.Size() or Table.Size
+    end
+
+    local function ResolveOffset()
+        return typeof(Offset) == "function" and Offset() or Offset
+    end
+
+    local function GetViewportClampBounds()
+        local Camera = workspace.CurrentCamera
+        local ViewportSize = Camera and Camera.ViewportSize or Vector2.new(800, 600)
+        local TopLeftInset = Vector2.zero
+        local BottomRightInset = Vector2.zero
+        pcall(function()
+            local TopLeft, BottomRight = GuiService:GetGuiInset()
+            TopLeftInset = TopLeft or Vector2.zero
+            BottomRightInset = BottomRight or Vector2.zero
+        end)
+
+        local Margin = Library.IsMobile and 10 or 6
+        return TopLeftInset.X + Margin,
+            TopLeftInset.Y + Margin,
+            math.max(Margin, ViewportSize.X - BottomRightInset.X - Margin),
+            math.max(Margin, ViewportSize.Y - BottomRightInset.Y - Margin)
+    end
+
+    function Table:Reposition()
+        local MenuSize = ResolveMenuSize()
+        Menu.Size = MenuSize
+
+        local OffsetValues = ResolveOffset()
+        local TargetX = math.floor(Holder.AbsolutePosition.X + OffsetValues[1])
+        local TargetY = math.floor(Holder.AbsolutePosition.Y + OffsetValues[2])
+
+        local MinX, MinY, MaxX, MaxY = GetViewportClampBounds()
+        local AbsoluteSize = Menu.AbsoluteSize
+        local Width = AbsoluteSize.X > 0 and AbsoluteSize.X or MenuSize.X.Offset
+        local Height = AbsoluteSize.Y > 0 and AbsoluteSize.Y or MenuSize.Y.Offset
+
+        local X = math.clamp(TargetX, MinX, math.max(MinX, MaxX - Width))
+        local Y = math.clamp(TargetY, MinY, math.max(MinY, MaxY - Height))
+
+        Menu.Position = UDim2.fromOffset(X, Y)
+    end
+
     function Table:Open()
         if CurrentMenu == Table then
             return
@@ -3706,36 +3751,20 @@ function Library:AddContextMenu(
         CurrentMenu = Table
         Table.Active = true
 
-        if typeof(Offset) == "function" then
-            Menu.Position = UDim2.fromOffset(
-                math.floor(Holder.AbsolutePosition.X + Offset()[1]),
-                math.floor(Holder.AbsolutePosition.Y + Offset()[2])
-            )
-        else
-            Menu.Position = UDim2.fromOffset(
-                math.floor(Holder.AbsolutePosition.X + Offset[1]),
-                math.floor(Holder.AbsolutePosition.Y + Offset[2])
-            )
-        end
-        Menu.Size = typeof(Table.Size) == "function" and Table.Size() or Table.Size
+        Table:Reposition()
         if typeof(ActiveCallback) == "function" then
             Library:SafeCallback(ActiveCallback, true)
         end
 
         Menu.Visible = true
+        task.defer(function()
+            if Table.Active then
+                Table:Reposition()
+            end
+        end)
 
         Table.Signal = Holder:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
-            if typeof(Offset) == "function" then
-                Menu.Position = UDim2.fromOffset(
-                    math.floor(Holder.AbsolutePosition.X + Offset()[1]),
-                    math.floor(Holder.AbsolutePosition.Y + Offset()[2])
-                )
-            else
-                Menu.Position = UDim2.fromOffset(
-                    math.floor(Holder.AbsolutePosition.X + Offset[1]),
-                    math.floor(Holder.AbsolutePosition.Y + Offset[2])
-                )
-            end
+            Table:Reposition()
         end)
     end
 
@@ -3766,7 +3795,10 @@ function Library:AddContextMenu(
 
     function Table:SetSize(Size)
         Table.Size = Size
-        Menu.Size = typeof(Size) == "function" and Size() or Size
+        Menu.Size = ResolveMenuSize()
+        if Table.Active then
+            Table:Reposition()
+        end
     end
 
     return Table
@@ -4886,13 +4918,70 @@ do
         )
 
         --// Color Menu \\--
-        local ColorMenu = Library:AddContextMenu(
+        local ColorHolder, SatVipMap, HueSelector, TransparencySelector
+
+        local function GetColorMenuMetrics()
+            local Camera = workspace.CurrentCamera
+            local ViewportSize = Camera and Camera.ViewportSize or Vector2.new(800, 600)
+            local SliderCount = Info.Transparency and 2 or 1
+            local SliderWidth = Library.IsMobile and 18 or 16
+            local Gap = Library.IsMobile and 8 or 6
+            local Padding = 12
+            local TargetMapSize = Library.IsMobile and 172 or 200
+            local BaseMinimumMapSize = Library.IsMobile and 88 or 112
+            local AvailableWidth =
+                math.max(112, (ViewportSize.X / math.max(Library.DPIScale, 0.01)) - (Library.IsMobile and 28 or 20))
+            local MaxMapSize = AvailableWidth - Padding - (SliderCount * SliderWidth) - (SliderCount * Gap)
+            local MinimumMapSize = math.min(BaseMinimumMapSize, math.max(48, MaxMapSize))
+            local MapSize = math.max(MinimumMapSize, math.min(TargetMapSize, MaxMapSize))
+            local MenuWidth = MapSize + Padding + (SliderCount * SliderWidth) + (SliderCount * Gap)
+
+            return math.floor(MapSize), math.floor(MenuWidth), SliderWidth
+        end
+
+        local function ApplyColorMenuMetrics()
+            local MapSize, _, SliderWidth = GetColorMenuMetrics()
+
+            if ColorHolder then
+                ColorHolder.Size = UDim2.new(1, 0, 0, MapSize)
+            end
+
+            if SatVipMap then
+                SatVipMap.Size = UDim2.fromOffset(MapSize, MapSize)
+            end
+
+            if HueSelector then
+                HueSelector.Size = UDim2.fromOffset(SliderWidth, MapSize)
+            end
+
+            if TransparencySelector then
+                TransparencySelector.Size = UDim2.fromOffset(SliderWidth, MapSize)
+            end
+        end
+
+        local ColorMenu
+        ColorMenu = Library:AddContextMenu(
             Holder,
-            UDim2.fromOffset(Info.Transparency and 256 or 234, 0),
+            function()
+                local _, MenuWidth = GetColorMenuMetrics()
+                return UDim2.fromOffset(MenuWidth, 0)
+            end,
             function()
                 return { 0.5, Holder.AbsoluteSize.Y + 1.5 }
             end,
-            1
+            1,
+            function(Active: boolean)
+                if not Active then
+                    return
+                end
+
+                ApplyColorMenuMetrics()
+                task.defer(function()
+                    if ColorMenu and ColorMenu.Active then
+                        ColorMenu:Reposition()
+                    end
+                end)
+            end
         )
         ColorMenu.List.Padding = UDim.new(0, 8)
         ColorPicker.ColorMenu = ColorMenu
@@ -4916,7 +5005,7 @@ do
             })
         end
 
-        local ColorHolder = New("Frame", {
+        ColorHolder = New("Frame", {
             BackgroundTransparency = 1,
             Size = UDim2.new(1, 0, 0, 200),
             Parent = ColorMenu.Menu,
@@ -4928,7 +5017,7 @@ do
         })
 
         --// Sat Map
-        local SatVipMap = New("ImageButton", {
+        SatVipMap = New("ImageButton", {
             BackgroundColor3 = ColorPicker.Value,
             Image = CustomImageManager.GetAsset("SaturationMap"),
             Size = UDim2.fromOffset(200, 200),
@@ -4951,7 +5040,7 @@ do
         })
 
         --// Hue
-        local HueSelector = New("TextButton", {
+        HueSelector = New("TextButton", {
             Size = UDim2.fromOffset(16, 200),
             Text = "",
             Parent = ColorHolder,
@@ -4973,7 +5062,7 @@ do
         })
 
         --// Alpha
-        local TransparencySelector, TransparencyColor, TransparencyCursor
+        local TransparencyColor, TransparencyCursor
         if Info.Transparency then
             TransparencySelector = New("ImageButton", {
                 Image = CustomImageManager.GetAsset("TransparencyTexture"),
@@ -5007,6 +5096,7 @@ do
                 Parent = TransparencySelector,
             })
         end
+        ApplyColorMenuMetrics()
 
         local InfoHolder = New("Frame", {
             BackgroundTransparency = 1,
@@ -5177,15 +5267,24 @@ do
         Holder.MouseButton1Click:Connect(ColorMenu.Toggle)
         Holder.MouseButton2Click:Connect(ContextMenu.Toggle)
 
+        local function GetPointerPosition(Input: InputObject): Vector2
+            if Input.UserInputType == Enum.UserInputType.Touch then
+                return Vector2.new(Input.Position.X, Input.Position.Y)
+            end
+
+            return Vector2.new(Mouse.X, Mouse.Y)
+        end
+
         SatVipMap.InputBegan:Connect(function(Input: InputObject)
             while IsDragInput(Input) do
+                local PointerPosition = GetPointerPosition(Input)
                 local MinX = SatVipMap.AbsolutePosition.X
                 local MaxX = MinX + SatVipMap.AbsoluteSize.X
-                local LocationX = math.clamp(Mouse.X, MinX, MaxX)
+                local LocationX = math.clamp(PointerPosition.X, MinX, MaxX)
 
                 local MinY = SatVipMap.AbsolutePosition.Y
                 local MaxY = MinY + SatVipMap.AbsoluteSize.Y
-                local LocationY = math.clamp(Mouse.Y, MinY, MaxY)
+                local LocationY = math.clamp(PointerPosition.Y, MinY, MaxY)
 
                 local OldSat = ColorPicker.Sat
                 local OldVib = ColorPicker.Vib
@@ -5201,9 +5300,10 @@ do
         end)
         HueSelector.InputBegan:Connect(function(Input: InputObject)
             while IsDragInput(Input) do
+                local PointerPosition = GetPointerPosition(Input)
                 local Min = HueSelector.AbsolutePosition.Y
                 local Max = Min + HueSelector.AbsoluteSize.Y
-                local Location = math.clamp(Mouse.Y, Min, Max)
+                local Location = math.clamp(PointerPosition.Y, Min, Max)
 
                 local OldHue = ColorPicker.Hue
                 ColorPicker.Hue = (Location - Min) / (Max - Min)
@@ -5218,9 +5318,10 @@ do
         if TransparencySelector then
             TransparencySelector.InputBegan:Connect(function(Input: InputObject)
                 while IsDragInput(Input) do
+                    local PointerPosition = GetPointerPosition(Input)
                     local Min = TransparencySelector.AbsolutePosition.Y
                     local Max = TransparencySelector.AbsolutePosition.Y + TransparencySelector.AbsoluteSize.Y
-                    local Location = math.clamp(Mouse.Y, Min, Max)
+                    local Location = math.clamp(PointerPosition.Y, Min, Max)
 
                     local OldTransparency = ColorPicker.Transparency
                     ColorPicker.Transparency = (Location - Min) / (Max - Min)
@@ -6598,7 +6699,7 @@ do
         local Button = New("TextButton", {
             Active = not Toggle.Disabled,
             BackgroundTransparency = 1,
-            Size = UDim2.new(1, 0, 0, 18),
+            Size = UDim2.new(1, 0, 0, 22),
             Text = "",
             Visible = Toggle.Visible,
             Parent = Container,
@@ -6606,7 +6707,7 @@ do
 
         local Label = New("TextLabel", {
             BackgroundTransparency = 1,
-            Size = UDim2.new(1, -40, 1, 0),
+            Size = UDim2.new(1, -54, 1, 0),
             Text = Toggle.Text,
             TextSize = 14,
             TextTransparency = 0.4,
@@ -6622,37 +6723,96 @@ do
         })
 
         local Switch = New("Frame", {
-            AnchorPoint = Vector2.new(1, 0),
+            AnchorPoint = Vector2.new(1, 0.5),
             BackgroundColor3 = "MainColor",
-            Position = UDim2.fromScale(1, 0),
-            Size = UDim2.fromOffset(32, 18),
+            BackgroundTransparency = 0.18,
+            ClipsDescendants = true,
+            Position = UDim2.fromScale(1, 0.5),
+            Size = UDim2.fromOffset(44, 22),
             Parent = Button,
         })
         New("UICorner", {
             CornerRadius = UDim.new(1, 0),
             Parent = Switch,
         })
-        New("UIPadding", {
-            PaddingBottom = UDim.new(0, 2),
-            PaddingLeft = UDim.new(0, 2),
-            PaddingRight = UDim.new(0, 2),
-            PaddingTop = UDim.new(0, 2),
-            Parent = Switch,
-        })
         local SwitchStroke = New("UIStroke", {
             Color = "OutlineColor",
+            Transparency = 0.38,
             Parent = Switch,
+        })
+        local SwitchGradient = Library:AddGradient(Switch, {
+            Rotation = 12,
+            Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 0.55),
+                NumberSequenceKeypoint.new(0.45, 0.92),
+                NumberSequenceKeypoint.new(1, 0.68),
+            }),
+        })
+
+        local SwitchFill = New("Frame", {
+            AnchorPoint = Vector2.new(0, 0.5),
+            BackgroundColor3 = "AccentColor",
+            BackgroundTransparency = 0.05,
+            Position = UDim2.fromScale(0, 0.5),
+            Size = UDim2.fromScale(0, 1),
+            Parent = Switch,
+        })
+        New("UICorner", {
+            CornerRadius = UDim.new(1, 0),
+            Parent = SwitchFill,
+        })
+        local FillGradient = Library:AddGradient(SwitchFill, {
+            Rotation = 12,
+            Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 0.08),
+                NumberSequenceKeypoint.new(0.55, 0.38),
+                NumberSequenceKeypoint.new(1, 0.16),
+            }),
+        })
+
+        local SwitchShine = New("Frame", {
+            BackgroundColor3 = "WhiteColor",
+            BackgroundTransparency = 0.9,
+            Position = UDim2.fromOffset(4, 3),
+            Size = UDim2.new(1, -8, 0, 7),
+            Parent = Switch,
+        })
+        New("UICorner", {
+            CornerRadius = UDim.new(1, 0),
+            Parent = SwitchShine,
+        })
+        Library:AddGradient(SwitchShine, {
+            Rotation = 0,
+            Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 1),
+                NumberSequenceKeypoint.new(0.35, 0.7),
+                NumberSequenceKeypoint.new(1, 1),
+            }),
         })
 
         local Ball = New("Frame", {
+            AnchorPoint = Vector2.new(0, 0.5),
             BackgroundColor3 = "FontColor",
-            Size = UDim2.fromScale(1, 1),
-            SizeConstraint = Enum.SizeConstraint.RelativeYY,
+            Position = UDim2.new(0, 3, 0.5, 0),
+            Size = UDim2.fromOffset(16, 16),
             Parent = Switch,
         })
         New("UICorner", {
             CornerRadius = UDim.new(1, 0),
             Parent = Ball,
+        })
+        local BallStroke = New("UIStroke", {
+            Color = "WhiteColor",
+            Transparency = 0.78,
+            Parent = Ball,
+        })
+        local BallGradient = Library:AddGradient(Ball, {
+            Rotation = 45,
+            Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 0),
+                NumberSequenceKeypoint.new(0.55, 0.22),
+                NumberSequenceKeypoint.new(1, 0.06),
+            }),
         })
 
         function Toggle:UpdateColors()
@@ -6664,40 +6824,69 @@ do
                 return
             end
 
-            local Offset = Toggle.Value and 1 or 0
+            local TrackColor = Toggle.Value and Library:GetDarkerColor(Library.Scheme.AccentColor)
+                or Library.Scheme.MainColor
+            local TrackStrokeColor = Toggle.Value and Library.Scheme.AccentColor or Library.Scheme.OutlineColor
+            local KnobColor = Toggle.Disabled and Library:GetDarkerColor(Library.Scheme.FontColor)
+                or Library.Scheme.FontColor
+            local TrackTransparency = Toggle.Disabled and 0.72 or Toggle.Value and 0.06 or 0.18
+            local StrokeTransparency = Toggle.Disabled and 0.78 or Toggle.Value and 0.1 or 0.38
+            local FillTransparency = Toggle.Disabled and 0.82 or Toggle.Value and 0.02 or 0.55
 
-            Switch.BackgroundTransparency = Toggle.Disabled and 0.75 or 0
-            SwitchStroke.Transparency = Toggle.Disabled and 0.75 or 0
+            SwitchGradient.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Library.Scheme.AccentColor),
+                ColorSequenceKeypoint.new(0.55, TrackColor),
+                ColorSequenceKeypoint.new(1, Library.Scheme.BackgroundColor),
+            })
+            FillGradient.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Library.Scheme.AccentColor),
+                ColorSequenceKeypoint.new(0.5, Library.Scheme.FontColor),
+                ColorSequenceKeypoint.new(1, Library.Scheme.AccentColor),
+            })
+            BallGradient.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Library.Scheme.FontColor),
+                ColorSequenceKeypoint.new(1, Library:GetDarkerColor(Library.Scheme.FontColor)),
+            })
 
-            Switch.BackgroundColor3 = Toggle.Value and Library.Scheme.AccentColor or Library.Scheme.MainColor
-            SwitchStroke.Color = Toggle.Value and Library.Scheme.AccentColor or Library.Scheme.OutlineColor
-
-            Library.Registry[Switch].BackgroundColor3 = Toggle.Value and "AccentColor" or "MainColor"
-            Library.Registry[SwitchStroke].Color = Toggle.Value and "AccentColor" or "OutlineColor"
-
-            if Toggle.Disabled then
-                Label.TextTransparency = 0.8
-                Ball.AnchorPoint = Vector2.new(Offset, 0)
-                Ball.Position = UDim2.fromScale(Offset, 0)
-
-                Ball.BackgroundColor3 = Library:GetDarkerColor(Library.Scheme.FontColor)
-                Library.Registry[Ball].BackgroundColor3 = function()
-                    return Library:GetDarkerColor(Library.Scheme.FontColor)
-                end
-
-                return
+            Library.Registry[Switch].BackgroundColor3 = function()
+                return Toggle.Value and Library:GetDarkerColor(Library.Scheme.AccentColor) or Library.Scheme.MainColor
+            end
+            Library.Registry[SwitchStroke].Color = function()
+                return Toggle.Value and Library.Scheme.AccentColor or Library.Scheme.OutlineColor
+            end
+            Library.Registry[SwitchFill].BackgroundColor3 = "AccentColor"
+            Library.Registry[Ball].BackgroundColor3 = function()
+                return Toggle.Disabled and Library:GetDarkerColor(Library.Scheme.FontColor) or Library.Scheme.FontColor
             end
 
             TweenService:Create(Label, Library.TweenInfo, {
-                TextTransparency = Toggle.Value and 0 or 0.4,
+                TextTransparency = Toggle.Disabled and 0.8 or Toggle.Value and 0 or 0.4,
+            }):Play()
+            TweenService:Create(Switch, Library.TweenInfo, {
+                BackgroundColor3 = TrackColor,
+                BackgroundTransparency = TrackTransparency,
+            }):Play()
+            TweenService:Create(SwitchStroke, Library.TweenInfo, {
+                Color = TrackStrokeColor,
+                Transparency = StrokeTransparency,
+            }):Play()
+            TweenService:Create(SwitchFill, Library.TweenInfo, {
+                BackgroundTransparency = FillTransparency,
+                Size = Toggle.Value and UDim2.fromScale(1, 1) or UDim2.fromScale(0, 1),
             }):Play()
             TweenService:Create(Ball, Library.TweenInfo, {
-                AnchorPoint = Vector2.new(Offset, 0),
-                Position = UDim2.fromScale(Offset, 0),
+                BackgroundColor3 = KnobColor,
+                Position = Toggle.Value and UDim2.new(1, -19, 0.5, 0) or UDim2.new(0, 3, 0.5, 0),
+                Size = Toggle.Value and UDim2.fromOffset(17, 17) or UDim2.fromOffset(16, 16),
             }):Play()
-
-            Ball.BackgroundColor3 = Library.Scheme.FontColor
-            Library.Registry[Ball].BackgroundColor3 = "FontColor"
+            TweenService:Create(BallStroke, Library.TweenInfo, {
+                Transparency = Toggle.Disabled and 0.95 or Toggle.Value and 0.55 or 0.78,
+            }):Play()
+            TweenService
+                :Create(SwitchShine, Library.TweenInfo, {
+                    BackgroundTransparency = Toggle.Disabled and 0.98 or Toggle.Value and 0.82 or 0.9,
+                })
+                :Play()
         end
 
         function Toggle:OnChanged(Func)
