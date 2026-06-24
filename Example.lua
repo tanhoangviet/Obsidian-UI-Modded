@@ -55,6 +55,14 @@ local Window = Library:CreateWindow({
     WindowGlowTransparency = 0.91,
     WindowShadow = true,
     BackgroundImage = RepoAsset("assets/Example.png"),
+    -- BackgroundVideo can use a direct mp4/webm URL or an rbxassetid number/string.
+    -- BackgroundVideo = "https://example.com/obsidian-background.mp4",
+    -- BackgroundVideo = "rbxassetid://1234567890",
+    -- BackgroundVideo = 1234567890,
+    -- BackgroundVideoTransparency = 0.08,
+    -- BackgroundVideoLooped = true,
+    -- BackgroundVideoPlaying = true,
+    -- BackgroundVideoVolume = 0,
     BackgroundImageTransparency = 0.12,
     BackgroundImageContentTransparency = 0.2,
     BackgroundImagePanelTransparency = 0.08,
@@ -91,6 +99,11 @@ local Window = Library:CreateWindow({
     KeybindMenuMaxHeight = 240,
     FullscreenBackground = true,
     FullscreenBackgroundTransparency = 1,
+    -- FullscreenBackgroundVideo = "https://example.com/fullscreen-background.mp4",
+    -- FullscreenBackgroundVideo = "rbxassetid://1234567890",
+    -- FullscreenBackgroundVideoTransparency = 0,
+    -- FullscreenBackgroundVideoLooped = true,
+    -- FullscreenBackgroundVideoPlaying = true,
 })
 
 -- CALLBACK NOTE:

@@ -640,6 +640,12 @@ local Templates = {
         BackgroundImageScaleType = Enum.ScaleType.Crop,
         BackgroundImageContentTransparency = 0.2,
         BackgroundImagePanelTransparency = 0.08,
+        BackgroundVideo = nil,
+        BackgroundVideoTransparency = 0,
+        BackgroundVideoScaleType = Enum.ScaleType.Crop,
+        BackgroundVideoLooped = true,
+        BackgroundVideoPlaying = true,
+        BackgroundVideoVolume = 0,
         BorderColor = "OutlineColor",
         BorderThickness = 1,
         BorderTransparency = 0,
@@ -668,6 +674,12 @@ local Templates = {
         FullscreenBackgroundImage = nil,
         FullscreenBackgroundImageTransparency = 0.15,
         FullscreenBackgroundImageScaleType = Enum.ScaleType.Crop,
+        FullscreenBackgroundVideo = nil,
+        FullscreenBackgroundVideoTransparency = 0,
+        FullscreenBackgroundVideoScaleType = Enum.ScaleType.Crop,
+        FullscreenBackgroundVideoLooped = true,
+        FullscreenBackgroundVideoPlaying = true,
+        FullscreenBackgroundVideoVolume = 0,
         ShowCustomCursor = true,
         Font = Enum.Font.Code,
         ToggleKeybind = Enum.KeyCode.RightControl,
@@ -2502,6 +2514,17 @@ local FullscreenBackground = New("ImageLabel", {
     ScaleType = Enum.ScaleType.Crop,
     Size = UDim2.fromScale(1, 1),
     Visible = false,
+    ZIndex = 0,
+    Parent = ScreenGui,
+})
+
+local FullscreenBackgroundVideo = New("VideoFrame", {
+    BackgroundTransparency = 1,
+    Looped = true,
+    Size = UDim2.fromScale(1, 1),
+    Video = "",
+    Visible = false,
+    Volume = 0,
     ZIndex = 0,
     Parent = ScreenGui,
 })
@@ -11962,7 +11985,8 @@ function Library:CreateWindow(WindowInfo)
     Library.Scheme.Font = WindowInfo.Font
     Library.ToggleKeybind = WindowInfo.ToggleKeybind
     Library.GlobalSearch = WindowInfo.GlobalSearch
-    Library.HasBackgroundImage = WindowInfo.BackgroundImage ~= nil and WindowInfo.BackgroundImage ~= ""
+    Library.HasBackgroundImage = (WindowInfo.BackgroundImage ~= nil and WindowInfo.BackgroundImage ~= "")
+        or (WindowInfo.BackgroundVideo ~= nil and WindowInfo.BackgroundVideo ~= "")
     Library.BackgroundImageContentTransparency = WindowInfo.BackgroundImageContentTransparency
     Library.BackgroundImagePanelTransparency = WindowInfo.BackgroundImagePanelTransparency
     local IsTopbarTabs = tostring(WindowInfo.TabsMode):lower() == "topbar"
@@ -11985,6 +12009,7 @@ function Library:CreateWindow(WindowInfo)
     local Tabs
     local Container
     local BackgroundImage
+    local BackgroundVideo
     local WindowGradient
     local MainOutlineStroke
     local MainShadowStroke
@@ -12008,11 +12033,6 @@ function Library:CreateWindow(WindowInfo)
         return Image
     end
 
-    local DynamicIslandLockedIconUrl =
-        "https://api.iconify.design/solar:lock-keyhole-minimalistic-bold.svg?color=%23ffffff"
-    local DynamicIslandUnlockedIconUrl =
-        "https://api.iconify.design/solar:lock-keyhole-minimalistic-unlocked-bold.svg?color=%23ffffff"
-
     local function GetUrlExtension(Url: string): string
         local Extension = Url:gsub("[?#].*$", ""):match("%.([%w]+)$")
         if not Extension or #Extension > 5 then
@@ -12021,6 +12041,58 @@ function Library:CreateWindow(WindowInfo)
 
         return Extension:lower()
     end
+
+    local function GetVideoUrlExtension(Url: string): string
+        local Extension = Url:gsub("[?#].*$", ""):match("%.([%w]+)$")
+        if not Extension or #Extension > 5 then
+            return "mp4"
+        end
+
+        return Extension:lower()
+    end
+
+    local function ResolveWindowVideo(Video: string | number?, Name: string)
+        if Video == nil then
+            return nil
+        end
+
+        local VideoString = tostring(Video)
+        if VideoString == "" then
+            return nil
+        end
+
+        if VideoString:match("^%d+$") then
+            return "rbxassetid://" .. VideoString
+        end
+
+        if IsHttpUrl(VideoString) then
+            local Hash = HashString(VideoString)
+            local Extension = GetVideoUrlExtension(VideoString)
+            return Library:DownloadVideo(VideoString, {
+                AssetName = Name .. "_" .. Hash,
+                FileName = Name .. "_" .. Hash .. "." .. Extension,
+                Extension = Extension,
+            })
+        end
+
+        return VideoString
+    end
+
+    local function ApplyVideoFrameSettings(VideoFrameObject: VideoFrame, Info)
+        local Transparency = math.clamp(tonumber(Info.Transparency) or 0, 0, 1)
+
+        SafeSetInstanceProperty(VideoFrameObject, "ScaleType", Info.ScaleType)
+        SafeSetInstanceProperty(VideoFrameObject, "Transparency", Transparency)
+        SafeSetInstanceProperty(VideoFrameObject, "VideoTransparency", Transparency)
+        VideoFrameObject.Looped = Info.Looped == true
+        VideoFrameObject.Volume = math.clamp(tonumber(Info.Volume) or 0, 0, 10)
+        VideoFrameObject.Playing = Info.Playing == true and VideoFrameObject.Visible
+    end
+
+    local DynamicIslandLockedIconUrl =
+        "https://api.iconify.design/solar:lock-keyhole-minimalistic-bold.svg?color=%23ffffff"
+    local DynamicIslandUnlockedIconUrl =
+        "https://api.iconify.design/solar:lock-keyhole-minimalistic-unlocked-bold.svg?color=%23ffffff"
 
     local function ResolveDynamicIslandRemoteImage(Image: string, Name: string)
         local Hash = HashString(Image)
@@ -13859,10 +13931,26 @@ function Library:CreateWindow(WindowInfo)
         FullscreenBackground.BackgroundTransparency = WindowInfo.FullscreenBackgroundTransparency
         WindowInfo.FullscreenBackgroundImage =
             ResolveWindowImage(WindowInfo.FullscreenBackgroundImage, "WindowFullscreenBackground")
+        WindowInfo.FullscreenBackgroundVideo =
+            ResolveWindowVideo(WindowInfo.FullscreenBackgroundVideo, "WindowFullscreenBackgroundVideo")
         FullscreenBackground.Image = WindowInfo.FullscreenBackgroundImage or ""
         FullscreenBackground.ImageTransparency = WindowInfo.FullscreenBackgroundImageTransparency
         FullscreenBackground.ScaleType = WindowInfo.FullscreenBackgroundImageScaleType
-        if WindowInfo.FullscreenBackgroundImage and WindowInfo.FullscreenBackgroundImage ~= "" then
+        FullscreenBackgroundVideo.Video = WindowInfo.FullscreenBackgroundVideo or ""
+        FullscreenBackgroundVideo.Visible = WindowInfo.FullscreenBackground == true
+            and WindowInfo.FullscreenBackgroundVideo ~= nil
+            and WindowInfo.FullscreenBackgroundVideo ~= ""
+        ApplyVideoFrameSettings(FullscreenBackgroundVideo, {
+            ScaleType = WindowInfo.FullscreenBackgroundVideoScaleType,
+            Transparency = WindowInfo.FullscreenBackgroundVideoTransparency,
+            Looped = WindowInfo.FullscreenBackgroundVideoLooped,
+            Playing = WindowInfo.FullscreenBackgroundVideoPlaying,
+            Volume = WindowInfo.FullscreenBackgroundVideoVolume,
+        })
+        if WindowInfo.FullscreenBackgroundVideo and WindowInfo.FullscreenBackgroundVideo ~= "" then
+            FullscreenBackground.Visible = false
+            FullscreenBackground.BackgroundTransparency = math.max(0.95, WindowInfo.FullscreenBackgroundTransparency)
+        elseif WindowInfo.FullscreenBackgroundImage and WindowInfo.FullscreenBackgroundImage ~= "" then
             FullscreenBackground.BackgroundTransparency = math.max(0.95, WindowInfo.FullscreenBackgroundTransparency)
         end
 
@@ -13957,7 +14045,9 @@ function Library:CreateWindow(WindowInfo)
         local function CreateBackgroundImage(Image)
             if BackgroundImage then
                 BackgroundImage.Image = Image
-                BackgroundImage.Visible = Image ~= nil and Image ~= ""
+                BackgroundImage.Visible = Image ~= nil
+                    and Image ~= ""
+                    and not (WindowInfo.BackgroundVideo ~= nil and WindowInfo.BackgroundVideo ~= "")
                 return BackgroundImage
             end
 
@@ -13969,7 +14059,9 @@ function Library:CreateWindow(WindowInfo)
                 ZIndex = 1,
                 BackgroundTransparency = 1,
                 ImageTransparency = WindowInfo.BackgroundImageTransparency,
-                Visible = Image ~= nil and Image ~= "",
+                Visible = Image ~= nil
+                    and Image ~= ""
+                    and not (WindowInfo.BackgroundVideo ~= nil and WindowInfo.BackgroundVideo ~= ""),
                 Parent = MainFrame,
             })
 
@@ -13984,9 +14076,85 @@ function Library:CreateWindow(WindowInfo)
             return BackgroundImage
         end
 
+        local function CreateBackgroundVideo(Video)
+            local Visible = Video ~= nil and Video ~= ""
+            if BackgroundVideo then
+                BackgroundVideo.Video = Video or ""
+                BackgroundVideo.Visible = Visible
+                ApplyVideoFrameSettings(BackgroundVideo, {
+                    ScaleType = WindowInfo.BackgroundVideoScaleType,
+                    Transparency = WindowInfo.BackgroundVideoTransparency,
+                    Looped = WindowInfo.BackgroundVideoLooped,
+                    Playing = WindowInfo.BackgroundVideoPlaying,
+                    Volume = WindowInfo.BackgroundVideoVolume,
+                })
+
+                if BackgroundImage then
+                    BackgroundImage.Visible = WindowInfo.BackgroundImage ~= nil
+                        and WindowInfo.BackgroundImage ~= ""
+                        and not Visible
+                end
+
+                return BackgroundVideo
+            end
+
+            BackgroundVideo = New("VideoFrame", {
+                BackgroundTransparency = 1,
+                Looped = WindowInfo.BackgroundVideoLooped,
+                Position = UDim2.fromScale(0, 0),
+                Size = UDim2.fromScale(1, 1),
+                Video = Video or "",
+                Visible = Visible,
+                Volume = WindowInfo.BackgroundVideoVolume,
+                ZIndex = 1,
+                Parent = MainFrame,
+            })
+            ApplyVideoFrameSettings(BackgroundVideo, {
+                ScaleType = WindowInfo.BackgroundVideoScaleType,
+                Transparency = WindowInfo.BackgroundVideoTransparency,
+                Looped = WindowInfo.BackgroundVideoLooped,
+                Playing = WindowInfo.BackgroundVideoPlaying,
+                Volume = WindowInfo.BackgroundVideoVolume,
+            })
+
+            table.insert(
+                Library.Corners,
+                New("UICorner", {
+                    CornerRadius = UDim.new(0, WindowInfo.CornerRadius),
+                    Parent = BackgroundVideo,
+                })
+            )
+
+            return BackgroundVideo
+        end
+
+        local function HasBackgroundMedia()
+            return (WindowInfo.BackgroundImage ~= nil and WindowInfo.BackgroundImage ~= "")
+                or (WindowInfo.BackgroundVideo ~= nil and WindowInfo.BackgroundVideo ~= "")
+        end
+
+        local function RefreshBackgroundMedia()
+            local HasVideo = WindowInfo.BackgroundVideo ~= nil and WindowInfo.BackgroundVideo ~= ""
+            local HasImage = WindowInfo.BackgroundImage ~= nil and WindowInfo.BackgroundImage ~= ""
+
+            if BackgroundVideo then
+                BackgroundVideo.Visible = HasVideo
+                BackgroundVideo.Playing = HasVideo and WindowInfo.BackgroundVideoPlaying == true
+            end
+
+            if BackgroundImage then
+                BackgroundImage.Visible = HasImage and not HasVideo
+            end
+
+            Library.HasBackgroundImage = HasBackgroundMedia()
+            UpdateBackgroundImageSurfaces()
+        end
+
         WindowInfo.BackgroundImage = ResolveWindowImage(WindowInfo.BackgroundImage, "WindowBackground")
-        Library.HasBackgroundImage = WindowInfo.BackgroundImage ~= nil and WindowInfo.BackgroundImage ~= ""
+        WindowInfo.BackgroundVideo = ResolveWindowVideo(WindowInfo.BackgroundVideo, "WindowBackgroundVideo")
+        Library.HasBackgroundImage = HasBackgroundMedia()
         CreateBackgroundImage(WindowInfo.BackgroundImage)
+        CreateBackgroundVideo(WindowInfo.BackgroundVideo)
 
         if WindowInfo.Center then
             MainFrame.Position = UDim2.new(0.5, -MainFrame.Size.X.Offset / 2, 0.5, -MainFrame.Size.Y.Offset / 2)
@@ -14312,8 +14480,10 @@ function Library:CreateWindow(WindowInfo)
         Image = ResolveWindowImage(Image, "WindowBackground")
         BackgroundImage.Image = Image
         BackgroundImage.Visible = Image ~= ""
+            and not (WindowInfo.BackgroundVideo ~= nil and WindowInfo.BackgroundVideo ~= "")
         WindowInfo.BackgroundImage = Image
-        Library.HasBackgroundImage = Image ~= ""
+        Library.HasBackgroundImage = (WindowInfo.BackgroundImage ~= nil and WindowInfo.BackgroundImage ~= "")
+            or (WindowInfo.BackgroundVideo ~= nil and WindowInfo.BackgroundVideo ~= "")
         UpdateBackgroundImageSurfaces()
     end
 
@@ -14324,13 +14494,164 @@ function Library:CreateWindow(WindowInfo)
 
         Image = ResolveWindowImage(Image, "WindowFullscreenBackground")
         FullscreenBackground.Image = Image or ""
-        FullscreenBackground.Visible = WindowInfo.FullscreenBackground == true and Image ~= nil and Image ~= ""
+        FullscreenBackground.Visible = WindowInfo.FullscreenBackground == true
+            and Image ~= nil
+            and Image ~= ""
+            and not (WindowInfo.FullscreenBackgroundVideo ~= nil and WindowInfo.FullscreenBackgroundVideo ~= "")
         WindowInfo.FullscreenBackgroundImage = Image
-        if Image and Image ~= "" then
+        if WindowInfo.FullscreenBackgroundVideo and WindowInfo.FullscreenBackgroundVideo ~= "" then
+            FullscreenBackground.BackgroundTransparency = math.max(0.95, WindowInfo.FullscreenBackgroundTransparency)
+        elseif Image and Image ~= "" then
             FullscreenBackground.BackgroundTransparency = math.max(0.95, WindowInfo.FullscreenBackgroundTransparency)
         else
             FullscreenBackground.BackgroundTransparency = WindowInfo.FullscreenBackgroundTransparency
         end
+    end
+
+    function Window:SetBackgroundVideo(Video: string | number?)
+        assert(
+            Video == nil or typeof(Video) == "string" or typeof(Video) == "number",
+            "Expected string, number, or nil for Video got: " .. typeof(Video)
+        )
+
+        local ResolvedVideo = ResolveWindowVideo(Video, "WindowBackgroundVideo")
+        WindowInfo.BackgroundVideo = ResolvedVideo
+
+        if BackgroundVideo then
+            BackgroundVideo.Video = ResolvedVideo or ""
+            BackgroundVideo.Visible = ResolvedVideo ~= nil and ResolvedVideo ~= ""
+            ApplyVideoFrameSettings(BackgroundVideo, {
+                ScaleType = WindowInfo.BackgroundVideoScaleType,
+                Transparency = WindowInfo.BackgroundVideoTransparency,
+                Looped = WindowInfo.BackgroundVideoLooped,
+                Playing = WindowInfo.BackgroundVideoPlaying,
+                Volume = WindowInfo.BackgroundVideoVolume,
+            })
+        end
+
+        if BackgroundImage then
+            BackgroundImage.Visible = WindowInfo.BackgroundImage ~= nil
+                and WindowInfo.BackgroundImage ~= ""
+                and not (ResolvedVideo ~= nil and ResolvedVideo ~= "")
+        end
+
+        Library.HasBackgroundImage = (WindowInfo.BackgroundImage ~= nil and WindowInfo.BackgroundImage ~= "")
+            or (WindowInfo.BackgroundVideo ~= nil and WindowInfo.BackgroundVideo ~= "")
+        UpdateBackgroundImageSurfaces()
+    end
+
+    Window.ChangeBackgroundVideo = Window.SetBackgroundVideo
+
+    function Window:SetFullscreenBackgroundVideo(Video: string | number?)
+        assert(
+            Video == nil or typeof(Video) == "string" or typeof(Video) == "number",
+            "Expected string, number, or nil for Video got: " .. typeof(Video)
+        )
+
+        local ResolvedVideo = ResolveWindowVideo(Video, "WindowFullscreenBackgroundVideo")
+        WindowInfo.FullscreenBackgroundVideo = ResolvedVideo
+        FullscreenBackgroundVideo.Video = ResolvedVideo or ""
+        FullscreenBackgroundVideo.Visible = WindowInfo.FullscreenBackground == true
+            and ResolvedVideo ~= nil
+            and ResolvedVideo ~= ""
+        ApplyVideoFrameSettings(FullscreenBackgroundVideo, {
+            ScaleType = WindowInfo.FullscreenBackgroundVideoScaleType,
+            Transparency = WindowInfo.FullscreenBackgroundVideoTransparency,
+            Looped = WindowInfo.FullscreenBackgroundVideoLooped,
+            Playing = WindowInfo.FullscreenBackgroundVideoPlaying,
+            Volume = WindowInfo.FullscreenBackgroundVideoVolume,
+        })
+
+        if ResolvedVideo and ResolvedVideo ~= "" then
+            FullscreenBackground.Visible = false
+            FullscreenBackground.BackgroundTransparency = math.max(0.95, WindowInfo.FullscreenBackgroundTransparency)
+        else
+            FullscreenBackground.Visible = WindowInfo.FullscreenBackground == true
+                and WindowInfo.FullscreenBackgroundImage ~= nil
+                and WindowInfo.FullscreenBackgroundImage ~= ""
+            if WindowInfo.FullscreenBackgroundImage and WindowInfo.FullscreenBackgroundImage ~= "" then
+                FullscreenBackground.BackgroundTransparency =
+                    math.max(0.95, WindowInfo.FullscreenBackgroundTransparency)
+            else
+                FullscreenBackground.BackgroundTransparency = WindowInfo.FullscreenBackgroundTransparency
+            end
+        end
+    end
+
+    function Window:SetBackgroundVideoTransparency(Transparency: number)
+        assert(typeof(Transparency) == "number", "Expected number for Transparency got: " .. typeof(Transparency))
+
+        WindowInfo.BackgroundVideoTransparency = math.clamp(Transparency, 0, 1)
+        if BackgroundVideo then
+            ApplyVideoFrameSettings(BackgroundVideo, {
+                ScaleType = WindowInfo.BackgroundVideoScaleType,
+                Transparency = WindowInfo.BackgroundVideoTransparency,
+                Looped = WindowInfo.BackgroundVideoLooped,
+                Playing = WindowInfo.BackgroundVideoPlaying,
+                Volume = WindowInfo.BackgroundVideoVolume,
+            })
+        end
+    end
+
+    function Window:SetFullscreenBackgroundVideoTransparency(Transparency: number)
+        assert(typeof(Transparency) == "number", "Expected number for Transparency got: " .. typeof(Transparency))
+
+        WindowInfo.FullscreenBackgroundVideoTransparency = math.clamp(Transparency, 0, 1)
+        ApplyVideoFrameSettings(FullscreenBackgroundVideo, {
+            ScaleType = WindowInfo.FullscreenBackgroundVideoScaleType,
+            Transparency = WindowInfo.FullscreenBackgroundVideoTransparency,
+            Looped = WindowInfo.FullscreenBackgroundVideoLooped,
+            Playing = WindowInfo.FullscreenBackgroundVideoPlaying,
+            Volume = WindowInfo.FullscreenBackgroundVideoVolume,
+        })
+    end
+
+    function Window:SetBackgroundVideoPlaying(Playing: boolean)
+        assert(typeof(Playing) == "boolean", "Expected boolean for Playing got: " .. typeof(Playing))
+
+        WindowInfo.BackgroundVideoPlaying = Playing
+        if BackgroundVideo then
+            BackgroundVideo.Playing = Playing and BackgroundVideo.Visible
+        end
+    end
+
+    function Window:SetFullscreenBackgroundVideoPlaying(Playing: boolean)
+        assert(typeof(Playing) == "boolean", "Expected boolean for Playing got: " .. typeof(Playing))
+
+        WindowInfo.FullscreenBackgroundVideoPlaying = Playing
+        FullscreenBackgroundVideo.Playing = Playing and FullscreenBackgroundVideo.Visible
+    end
+
+    function Window:SetBackgroundVideoLooped(Looped: boolean)
+        assert(typeof(Looped) == "boolean", "Expected boolean for Looped got: " .. typeof(Looped))
+
+        WindowInfo.BackgroundVideoLooped = Looped
+        if BackgroundVideo then
+            BackgroundVideo.Looped = Looped
+        end
+    end
+
+    function Window:SetFullscreenBackgroundVideoLooped(Looped: boolean)
+        assert(typeof(Looped) == "boolean", "Expected boolean for Looped got: " .. typeof(Looped))
+
+        WindowInfo.FullscreenBackgroundVideoLooped = Looped
+        FullscreenBackgroundVideo.Looped = Looped
+    end
+
+    function Window:SetBackgroundVideoVolume(Volume: number)
+        assert(typeof(Volume) == "number", "Expected number for Volume got: " .. typeof(Volume))
+
+        WindowInfo.BackgroundVideoVolume = math.clamp(Volume, 0, 10)
+        if BackgroundVideo then
+            BackgroundVideo.Volume = WindowInfo.BackgroundVideoVolume
+        end
+    end
+
+    function Window:SetFullscreenBackgroundVideoVolume(Volume: number)
+        assert(typeof(Volume) == "number", "Expected number for Volume got: " .. typeof(Volume))
+
+        WindowInfo.FullscreenBackgroundVideoVolume = math.clamp(Volume, 0, 10)
+        FullscreenBackgroundVideo.Volume = WindowInfo.FullscreenBackgroundVideoVolume
     end
 
     function Window:SetBackgroundImageTransparency(Transparency: number)
