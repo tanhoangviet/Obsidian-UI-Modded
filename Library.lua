@@ -3456,14 +3456,66 @@ function Library:CreateFloatingPage(Source, Info)
         Visible = BoxHolder.Visible,
     }
 
-    local Placeholder = New("Frame", {
-        AutomaticSize = Enum.AutomaticSize.None,
-        BackgroundTransparency = 1,
-        LayoutOrder = Original.LayoutOrder,
-        Size = UDim2.new(1, 0, 0, math.max(34, ContentHeight)),
-        Visible = Original.Visible,
-        Parent = OriginalParent,
-    })
+    local Placeholder
+    local SyncToken = {}
+
+    local function MakeClonePassive(Clone: Instance)
+        if Clone:IsA("GuiButton") then
+            Clone.Active = false
+            Clone.AutoButtonColor = false
+            SafeSetInstanceProperty(Clone, "Selectable", false)
+        elseif Clone:IsA("ScrollingFrame") then
+            Clone.ScrollingEnabled = false
+        end
+
+        for _, Descendant in Clone:GetDescendants() do
+            if Descendant:IsA("GuiButton") then
+                Descendant.Active = false
+                Descendant.AutoButtonColor = false
+                SafeSetInstanceProperty(Descendant, "Selectable", false)
+            elseif Descendant:IsA("ScrollingFrame") then
+                Descendant.ScrollingEnabled = false
+            end
+        end
+    end
+
+    local function RefreshPlaceholderClone()
+        if not Original.Parent or not Original.Parent.Parent then
+            return
+        end
+
+        local OldPlaceholder = Placeholder
+        local CloneSuccess, Clone = pcall(function()
+            SafeSetInstanceProperty(BoxHolder, "Archivable", true)
+            return BoxHolder:Clone()
+        end)
+
+        if CloneSuccess and Clone then
+            Placeholder = Clone
+            Placeholder.Name = tostring(BoxHolder.Name) .. "_FloatingClone"
+            Placeholder.AutomaticSize = Original.AutomaticSize
+            Placeholder.LayoutOrder = Original.LayoutOrder
+            Placeholder.Size = UDim2.new(1, 0, 0, math.max(34, BoxHolder.AbsoluteSize.Y / DPIScale))
+            Placeholder.Visible = Original.Visible
+            MakeClonePassive(Placeholder)
+            Placeholder.Parent = Original.Parent
+        else
+            Placeholder = New("Frame", {
+                AutomaticSize = Enum.AutomaticSize.None,
+                BackgroundTransparency = 1,
+                LayoutOrder = Original.LayoutOrder,
+                Size = UDim2.new(1, 0, 0, math.max(34, ContentHeight)),
+                Visible = Original.Visible,
+                Parent = Original.Parent,
+            })
+        end
+
+        if OldPlaceholder and OldPlaceholder.Parent then
+            OldPlaceholder:Destroy()
+        end
+    end
+
+    RefreshPlaceholderClone()
 
     local Holder = New("Frame", {
         BackgroundColor3 = "BackgroundColor",
@@ -3474,7 +3526,7 @@ function Library:CreateFloatingPage(Source, Info)
         ZIndex = 18,
         Parent = ScreenGui,
     })
-    RegisterBackgroundImageSurface(Holder, 0, "Panel")
+    Holder.BackgroundTransparency = 0
     table.insert(
         Library.Corners,
         New("UICorner", { CornerRadius = UDim.new(0, Library.CornerRadius), Parent = Holder })
@@ -3606,6 +3658,78 @@ function Library:CreateFloatingPage(Source, Info)
         Parent = FloatingContainer,
     })
 
+    local ResizeButton = New("TextButton", {
+        AnchorPoint = Vector2.new(1, 1),
+        BackgroundTransparency = 1,
+        Position = UDim2.new(1, -2, 1, -2),
+        Size = UDim2.fromOffset(Library.IsMobile and 36 or 28, Library.IsMobile and 36 or 28),
+        Text = "",
+        ZIndex = Holder.ZIndex + 3,
+        Parent = Holder,
+    })
+    local ResizeIcon = Library:GetIcon("move-diagonal-2") or Library:GetIcon("maximize-2")
+    if ResizeIcon then
+        New("ImageLabel", {
+            BackgroundTransparency = 1,
+            Image = ResizeIcon.Url,
+            ImageColor3 = "FontColor",
+            ImageRectOffset = ResizeIcon.ImageRectOffset,
+            ImageRectSize = ResizeIcon.ImageRectSize,
+            ImageTransparency = 0.35,
+            Position = UDim2.fromOffset(6, 6),
+            Size = UDim2.new(1, -12, 1, -12),
+            ZIndex = ResizeButton.ZIndex + 1,
+            Parent = ResizeButton,
+        })
+    else
+        ResizeButton.Text = "resize"
+        ResizeButton.TextSize = 10
+        ResizeButton.TextTransparency = 0.45
+    end
+
+    local ResizeDragging = false
+    local ResizeStartPosition
+    local ResizeStartSize
+    local ResizeChanged
+    local MinFloatingSize = Vector2.new(math.min(260, Width), MinHeight)
+    local MaxFloatingSize = Vector2.new(
+        math.max(MinFloatingSize.X, (ViewportSize.X / DPIScale) - Margin * 2),
+        math.max(MinFloatingSize.Y, (ViewportSize.Y / DPIScale) - Margin * 2)
+    )
+
+    Library:GiveSignal(ResizeButton.InputBegan:Connect(function(Input: InputObject)
+        if not IsClickInput(Input) then
+            return
+        end
+
+        ResizeDragging = true
+        ResizeStartPosition = Input.Position
+        ResizeStartSize = Holder.Size
+
+        ResizeChanged = Input.Changed:Connect(function()
+            if Input.UserInputState ~= Enum.UserInputState.End then
+                return
+            end
+
+            ResizeDragging = false
+            if ResizeChanged and ResizeChanged.Connected then
+                ResizeChanged:Disconnect()
+                ResizeChanged = nil
+            end
+        end)
+    end))
+
+    Library:GiveSignal(UserInputService.InputChanged:Connect(function(Input: InputObject)
+        if not ResizeDragging or not IsHoverInput(Input) or not Holder.Parent then
+            return
+        end
+
+        local Delta = Input.Position - ResizeStartPosition
+        local TargetWidth = math.clamp(ResizeStartSize.X.Offset + Delta.X, MinFloatingSize.X, MaxFloatingSize.X)
+        local TargetHeight = math.clamp(ResizeStartSize.Y.Offset + Delta.Y, MinFloatingSize.Y, MaxFloatingSize.Y)
+        Holder.Size = UDim2.fromOffset(TargetWidth, TargetHeight)
+    end))
+
     local HolderScale = Holder:FindFirstChildOfClass("UIScale")
     if HolderScale then
         HolderScale.Scale = 0.96
@@ -3613,10 +3737,6 @@ function Library:CreateFloatingPage(Source, Info)
             Scale = 1,
         }):Play()
     end
-    Holder.BackgroundTransparency = 0.08
-    TweenService:Create(Holder, TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-        BackgroundTransparency = 0,
-    }):Play()
 
     BoxHolder.Parent = FloatingContainer
     BoxHolder.LayoutOrder = 0
@@ -3626,7 +3746,18 @@ function Library:CreateFloatingPage(Source, Info)
 
     Source.FloatingWindow = Holder
     Source.FloatingPlaceholder = Placeholder
+    Source.FloatingSyncToken = SyncToken
     Source.IsFloating = true
+
+    task.spawn(function()
+        while Source.FloatingSyncToken == SyncToken and Holder.Parent do
+            task.wait(0.45)
+            if Source.FloatingSyncToken == SyncToken and Holder.Parent then
+                RefreshPlaceholderClone()
+                Source.FloatingPlaceholder = Placeholder
+            end
+        end
+    end)
 
     local function Restore()
         if Source.FloatingWindow ~= Holder then
@@ -3635,6 +3766,7 @@ function Library:CreateFloatingPage(Source, Info)
 
         Source.FloatingWindow = nil
         Source.FloatingPlaceholder = nil
+        Source.FloatingSyncToken = nil
         Source.IsFloating = false
 
         if Original.Parent and Original.Parent.Parent then
