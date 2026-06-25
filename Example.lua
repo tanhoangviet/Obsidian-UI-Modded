@@ -48,6 +48,10 @@ local Window = Library:CreateWindow({
     DynamicIslandIdleDelay = 2.2,
     DynamicIslandIdleTransparency = 0.56,
     DynamicIslandHoldDuration = 0.45,
+    FloatingPages = true,
+    FloatingPageHoldDuration = 5,
+    FloatingPageWidth = 390,
+    FloatingPageMaxHeight = 460,
 
     -- Modded visuals: background image, gradient overlay, and custom border stroke.
     WindowGlow = true,
@@ -55,8 +59,8 @@ local Window = Library:CreateWindow({
     WindowGlowTransparency = 0.91,
     WindowShadow = true,
     BackgroundImage = RepoAsset("assets/Example.png"),
-    -- BackgroundVideo can use a direct mp4/webm URL or an rbxassetid number/string.
-    -- BackgroundVideo = "https://example.com/obsidian-background.mp4",
+    -- BackgroundVideo can use a direct webm URL or an rbxassetid number/string.
+    -- BackgroundVideo = "https://raw.githubusercontent.com/user/repo/main/obsidian-background.webm",
     -- BackgroundVideo = "rbxassetid://1234567890",
     -- BackgroundVideo = 1234567890,
     -- BackgroundVideoTransparency = 0.08,
@@ -99,7 +103,7 @@ local Window = Library:CreateWindow({
     KeybindMenuMaxHeight = 240,
     FullscreenBackground = true,
     FullscreenBackgroundTransparency = 1,
-    -- FullscreenBackgroundVideo = "https://example.com/fullscreen-background.mp4",
+    -- FullscreenBackgroundVideo = "https://raw.githubusercontent.com/user/repo/main/fullscreen-background.webm",
     -- FullscreenBackgroundVideo = "rbxassetid://1234567890",
     -- FullscreenBackgroundVideoTransparency = 0,
     -- FullscreenBackgroundVideoLooped = true,
@@ -188,10 +192,10 @@ FullMediaBox:AddLabel({
     DoesWrap = true,
 })
 
--- Direct MP4 URL example:
+-- Direct WEBM URL example:
 -- FullMediaBox:AddVideo("RemoteVideo", {
---     Video = "https://your-site.com/video.mp4",
---     FileName = "RemoteVideo.mp4",
+--     Video = "https://your-site.com/video.webm",
+--     FileName = "RemoteVideo.webm",
 --     Playing = true,
 --     Looped = true,
 -- })

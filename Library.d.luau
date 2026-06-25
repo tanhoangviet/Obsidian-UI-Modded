@@ -1195,17 +1195,24 @@ export type Groupbox = BaseGroupbox & {
     BoxHolder: Frame,
     Holder: Frame,
     Container: Frame,
+    Text: string?,
+    Type: "Groupbox"?,
     Tab: Tab,
     DependencyBoxes: { [number]: DependencyBox },
     Tabboxes: { [string]: Tabbox },
     Elements: { [number]: Element },
     Collapsed: boolean?,
+    IsFloating: boolean?,
+    FloatingWindow: Frame?,
 
     Resize: (self: Groupbox) -> (),
     SetCollapsed: (self: Groupbox, Collapsed: boolean) -> (),
     ToggleCollapsed: (self: Groupbox) -> (),
     SetOptimized: (self: Groupbox, Collapsed: boolean) -> (),
     ToggleOptimized: (self: Groupbox) -> (),
+    Float: (self: Groupbox) -> Frame?,
+    DockFloating: ((self: Groupbox) -> ())?,
+    RestoreFloating: ((self: Groupbox) -> ())?,
 }
 
 export type SubTab = BaseGroupbox & {
@@ -1230,6 +1237,8 @@ export type Tabbox = {
     Type: "Tabbox"?,
     Visible: boolean?,
     Collapsed: boolean?,
+    IsFloating: boolean?,
+    FloatingWindow: Frame?,
 
     AddTab: (self: Tabbox, Name: string, IconName: string?) -> SubTab,
     Resize: (self: Tabbox) -> (),
@@ -1238,6 +1247,9 @@ export type Tabbox = {
     ToggleCollapsed: (self: Tabbox) -> (),
     SetOptimized: (self: Tabbox, Collapsed: boolean) -> (),
     ToggleOptimized: (self: Tabbox) -> (),
+    Float: (self: Tabbox) -> Frame?,
+    DockFloating: ((self: Tabbox) -> ())?,
+    RestoreFloating: ((self: Tabbox) -> ())?,
     UpdateCorners: (self: Tabbox) -> (),
 }
 
@@ -1255,14 +1267,31 @@ export type Tab = {
     Resize: (self: Tab, ResizeWarningBox: boolean?) -> (),
     AddGroupbox: (
         self: Tab,
-        Info: { Side: number | string, Name: string, IconName: string? } & OptimizeInfo
+        Info: {
+            Side: number | string,
+            Name: string,
+            IconName: string?,
+            Floating: boolean?,
+            FloatingPage: boolean?,
+            FloatingWidth: number?,
+            FloatingHeight: number?,
+        } & OptimizeInfo
     ) -> Groupbox,
     AddLeftGroupbox: (self: Tab, Name: string, IconName: string?) -> Groupbox,
     AddRightGroupbox: (self: Tab, Name: string, IconName: string?) -> Groupbox,
     AddFullGroupbox: (self: Tab, Name: string, IconName: string?) -> Groupbox,
     AddTabbox: (
         self: Tab,
-        Info: { Side: number | string, Name: string?, Visible: boolean? } & OptimizeInfo
+        Info: {
+            Side: number | string,
+            Name: string?,
+            IconName: string?,
+            Visible: boolean?,
+            Floating: boolean?,
+            FloatingPage: boolean?,
+            FloatingWidth: number?,
+            FloatingHeight: number?,
+        } & OptimizeInfo
     ) -> Tabbox,
     AddLeftTabbox: (self: Tab, Name: string?) -> Tabbox,
     AddRightTabbox: (self: Tab, Name: string?) -> Tabbox,
@@ -2125,6 +2154,8 @@ export type Library = {
     MakeOutline: (self: Library, Frame: GuiObject, Corner: number?, ZIndex: number?) -> Frame,
     AddDraggableButton: (self: Library, Text: string, Func: (DraggableButton) -> ()) -> DraggableButton,
     AddDraggableMenu: (self: Library, Name: string, Info: DraggableMenuInfo?) -> (Frame, ScrollingFrame),
+    CreateFloatingPage: (self: Library, Source: Groupbox | Tabbox, Info: any?) -> Frame?,
+    BindFloatingPageSource: (self: Library, Source: Groupbox | Tabbox, Hitbox: GuiObject, Info: any?) -> (),
     SetKeybindMenuSize: (self: Library, Width: number?, Height: number?) -> (),
     AddKeybindMenuButton: (self: Library, Info: KeybindMenuButtonInfo | string) -> KeybindMenuButton,
     AddKeybindMenuToggle: ((self: Library, Idx: string, Info: KeybindMenuToggleInfo) -> KeybindMenuToggle)
@@ -2215,6 +2246,13 @@ export type Library = {
             WindowGlowImage: string?,
             GroupboxOptimizeButton: boolean?,
             TabboxOptimizeButton: boolean?,
+            FloatingPages: boolean?,
+            FloatingPageHoldDuration: number?,
+            FloatingPageWidth: number?,
+            FloatingPageMaxHeight: number?,
+            FloatingPageMinHeight: number?,
+            FloatingPageShadow: boolean?,
+            FloatingPageGlow: boolean?,
             TabsMode: "Sidebar" | "Topbar"?,
             TabStyle: "Default" | "Card"?,
             FullscreenBackground: boolean?,

@@ -666,6 +666,13 @@ local Templates = {
         WindowGlowImage = nil,
         GroupboxOptimizeButton = true,
         TabboxOptimizeButton = false,
+        FloatingPages = true,
+        FloatingPageHoldDuration = 5,
+        FloatingPageWidth = 390,
+        FloatingPageMaxHeight = 460,
+        FloatingPageMinHeight = 150,
+        FloatingPageShadow = true,
+        FloatingPageGlow = true,
         TabsMode = "Sidebar", -- Sidebar, Topbar
         TabStyle = "Default", -- Default, Card
         FullscreenBackground = false,
@@ -1037,7 +1044,7 @@ local Templates = {
         Video = "",
         FileName = nil,
         Folder = nil,
-        Extension = "mp4",
+        Extension = "webm",
         ForceRedownload = false,
         Looped = false,
         Playing = false,
@@ -1731,7 +1738,7 @@ end
 function Library:DownloadVideo(Url: string, Info)
     Info = typeof(Info) == "table" and Info or { FileName = Info }
     Info.Folder = Info.Folder or "Obsidian/videos"
-    Info.Extension = Info.Extension or "mp4"
+    Info.Extension = Info.Extension or "webm"
     return Library:DownloadUrlAsset(Url, Info)
 end
 
@@ -3394,6 +3401,351 @@ function Library:AddDraggableMenu(Name: string, Info)
 
     Library:MakeDraggable(Holder, Label, true)
     return Holder, Container
+end
+
+function Library:CreateFloatingPage(Source, Info)
+    Info = typeof(Info) == "table" and Info or {}
+
+    if not Source or not Source.BoxHolder then
+        return nil
+    end
+
+    if Source.FloatingWindow and Source.FloatingWindow.Parent then
+        Source.FloatingWindow.Visible = true
+        return Source.FloatingWindow
+    end
+
+    local BoxHolder = Source.BoxHolder
+    local OriginalParent = BoxHolder.Parent
+    if not OriginalParent then
+        return nil
+    end
+
+    local WindowInfo = Info.WindowInfo or Source.WindowInfo or {}
+    local ViewportSize = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(800, 600)
+    local DPIScale = math.max(Library.DPIScale or 1, 0.01)
+    local Margin = Library.IsMobile and 12 or 18
+    local Width = math.clamp(
+        tonumber(Info.Width or WindowInfo.FloatingPageWidth) or 390,
+        260,
+        math.max(260, (ViewportSize.X / DPIScale) - Margin * 2)
+    )
+    local ContentHeight = math.max(72, BoxHolder.AbsoluteSize.Y / DPIScale)
+    local MinHeight = math.max(110, tonumber(WindowInfo.FloatingPageMinHeight) or 150)
+    local MaxHeight = math.min(
+        tonumber(WindowInfo.FloatingPageMaxHeight) or 460,
+        math.max(MinHeight, (ViewportSize.Y / DPIScale) - Margin * 2)
+    )
+    local Height = math.clamp(tonumber(Info.Height) or (ContentHeight + 50), MinHeight, MaxHeight)
+    local PositionX = math.clamp(
+        (BoxHolder.AbsolutePosition.X / DPIScale) + 18,
+        Margin,
+        math.max(Margin, (ViewportSize.X / DPIScale) - Width - Margin)
+    )
+    local PositionY = math.clamp(
+        (BoxHolder.AbsolutePosition.Y / DPIScale) + 18,
+        Margin,
+        math.max(Margin, (ViewportSize.Y / DPIScale) - Height - Margin)
+    )
+
+    local Original = {
+        Parent = OriginalParent,
+        LayoutOrder = BoxHolder.LayoutOrder,
+        Size = BoxHolder.Size,
+        AutomaticSize = BoxHolder.AutomaticSize,
+        Visible = BoxHolder.Visible,
+    }
+
+    local Placeholder = New("Frame", {
+        AutomaticSize = Enum.AutomaticSize.None,
+        BackgroundTransparency = 1,
+        LayoutOrder = Original.LayoutOrder,
+        Size = UDim2.new(1, 0, 0, math.max(34, ContentHeight)),
+        Visible = Original.Visible,
+        Parent = OriginalParent,
+    })
+
+    local Holder = New("Frame", {
+        BackgroundColor3 = "BackgroundColor",
+        ClipsDescendants = true,
+        Position = UDim2.fromOffset(PositionX, PositionY),
+        Size = UDim2.fromOffset(Width, Height),
+        Visible = true,
+        ZIndex = 18,
+        Parent = ScreenGui,
+    })
+    RegisterBackgroundImageSurface(Holder, 0, "Panel")
+    table.insert(
+        Library.Corners,
+        New("UICorner", { CornerRadius = UDim.new(0, Library.CornerRadius), Parent = Holder })
+    )
+    table.insert(Library.Scales, New("UIScale", { Parent = Holder }))
+    Library:AddOutline(Holder, {
+        Color = Info.BorderColor or WindowInfo.BorderColor or "OutlineColor",
+        Thickness = 1.25,
+        ShadowTransparency = 0.45,
+    })
+    Library:AddGradient(Holder, {
+        Color = WindowInfo.GradientColorSequence,
+        Rotation = WindowInfo.GradientRotation or 35,
+        Transparency = WindowInfo.GradientTransparency,
+    })
+    if WindowInfo.FloatingPageShadow ~= false then
+        Library:AddShadowGlow(Holder, {
+            Name = "FloatingPageShadow",
+            Color = WindowInfo.WindowShadowColor or "DarkColor",
+            Transparency = WindowInfo.WindowShadowTransparency or 0.58,
+            Size = WindowInfo.WindowShadowSize or 26,
+            Offset = WindowInfo.WindowShadowOffset or Vector2.new(0, 8),
+            Image = WindowInfo.WindowShadowImage,
+            ScaleWithDPI = true,
+            ZIndex = Holder.ZIndex - 1,
+        })
+    end
+    if WindowInfo.FloatingPageGlow ~= false then
+        Library:AddShadowGlow(Holder, {
+            Name = "FloatingPageGlow",
+            Color = WindowInfo.WindowGlowColor or "WhiteColor",
+            Transparency = WindowInfo.WindowGlowTransparency or 0.9,
+            Size = WindowInfo.WindowGlowSize or 16,
+            Offset = Vector2.zero,
+            Image = WindowInfo.WindowGlowImage,
+            ScaleWithDPI = true,
+            ZIndex = Holder.ZIndex - 1,
+        })
+    end
+
+    local TitleBar = New("TextButton", {
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 38),
+        Text = "",
+        ZIndex = Holder.ZIndex + 1,
+        Parent = Holder,
+    })
+    Library:MakeLine(Holder, {
+        Position = UDim2.fromOffset(0, 38),
+        Size = UDim2.new(1, 0, 0, 1),
+    })
+
+    local TitleIcon = Library:GetCustomIcon(Info.IconName)
+    if TitleIcon then
+        New("ImageLabel", {
+            BackgroundTransparency = 1,
+            Image = TitleIcon.Url,
+            ImageColor3 = TitleIcon.Custom and "WhiteColor" or "AccentColor",
+            ImageRectOffset = TitleIcon.ImageRectOffset,
+            ImageRectSize = TitleIcon.ImageRectSize,
+            Position = UDim2.fromOffset(10, 9),
+            Size = UDim2.fromOffset(20, 20),
+            ZIndex = TitleBar.ZIndex + 1,
+            Parent = TitleBar,
+        })
+    end
+
+    local TitleLabel = New("TextLabel", {
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(TitleIcon and 38 or 12, 0),
+        Size = UDim2.new(1, TitleIcon and -82 or -56, 1, 0),
+        Text = Info.Title or Source.Text or Source.Name or "Floating Page",
+        TextSize = 15,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextTruncate = Enum.TextTruncate.AtEnd,
+        ZIndex = TitleBar.ZIndex + 1,
+        Parent = TitleBar,
+    })
+
+    local DockButton = New("TextButton", {
+        AnchorPoint = Vector2.new(1, 0.5),
+        BackgroundTransparency = 1,
+        Position = UDim2.new(1, -6, 0.5, 0),
+        Size = UDim2.fromOffset(30, 30),
+        Text = "",
+        ZIndex = TitleBar.ZIndex + 1,
+        Parent = TitleBar,
+    })
+    local DockIcon = Library:GetIcon("corner-down-left") or Library:GetIcon("x")
+    if DockIcon then
+        New("ImageLabel", {
+            BackgroundTransparency = 1,
+            Image = DockIcon.Url,
+            ImageColor3 = "FontColor",
+            ImageRectOffset = DockIcon.ImageRectOffset,
+            ImageRectSize = DockIcon.ImageRectSize,
+            ImageTransparency = 0.1,
+            Position = UDim2.fromOffset(6, 6),
+            Size = UDim2.new(1, -12, 1, -12),
+            ZIndex = DockButton.ZIndex + 1,
+            Parent = DockButton,
+        })
+    else
+        DockButton.Text = "x"
+        DockButton.TextSize = 16
+    end
+
+    local FloatingContainer = New("ScrollingFrame", {
+        AutomaticCanvasSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        CanvasSize = UDim2.fromScale(0, 0),
+        Position = UDim2.fromOffset(0, 39),
+        ScrollBarImageColor3 = "OutlineColor",
+        ScrollBarThickness = 2,
+        Size = UDim2.new(1, 0, 1, -39),
+        ZIndex = Holder.ZIndex + 1,
+        Parent = Holder,
+    })
+    New("UIListLayout", {
+        Padding = UDim.new(0, 7),
+        Parent = FloatingContainer,
+    })
+    New("UIPadding", {
+        PaddingBottom = UDim.new(0, 8),
+        PaddingLeft = UDim.new(0, 8),
+        PaddingRight = UDim.new(0, 8),
+        PaddingTop = UDim.new(0, 8),
+        Parent = FloatingContainer,
+    })
+
+    local HolderScale = Holder:FindFirstChildOfClass("UIScale")
+    if HolderScale then
+        HolderScale.Scale = 0.96
+        TweenService:Create(HolderScale, TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+            Scale = 1,
+        }):Play()
+    end
+    Holder.BackgroundTransparency = 0.08
+    TweenService:Create(Holder, TweenInfo.new(0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+        BackgroundTransparency = 0,
+    }):Play()
+
+    BoxHolder.Parent = FloatingContainer
+    BoxHolder.LayoutOrder = 0
+    BoxHolder.Size = UDim2.new(1, 0, 0, 0)
+    BoxHolder.AutomaticSize = Enum.AutomaticSize.Y
+    BoxHolder.Visible = true
+
+    Source.FloatingWindow = Holder
+    Source.FloatingPlaceholder = Placeholder
+    Source.IsFloating = true
+
+    local function Restore()
+        if Source.FloatingWindow ~= Holder then
+            return
+        end
+
+        Source.FloatingWindow = nil
+        Source.FloatingPlaceholder = nil
+        Source.IsFloating = false
+
+        if Original.Parent and Original.Parent.Parent then
+            BoxHolder.Parent = Original.Parent
+            BoxHolder.LayoutOrder = Original.LayoutOrder
+            BoxHolder.Size = Original.Size
+            BoxHolder.AutomaticSize = Original.AutomaticSize
+            BoxHolder.Visible = Original.Visible
+        end
+
+        if Placeholder and Placeholder.Parent then
+            Placeholder:Destroy()
+        end
+        if Holder and Holder.Parent then
+            Holder:Destroy()
+        end
+
+        if typeof(Source.Resize) == "function" then
+            pcall(function()
+                Source:Resize()
+            end)
+        end
+        local GroupTab = Source.GroupTab or Source.Tab
+        if GroupTab and typeof(GroupTab.RefreshSides) == "function" then
+            pcall(function()
+                GroupTab:RefreshSides()
+            end)
+        end
+    end
+
+    Source.DockFloating = Restore
+    Source.RestoreFloating = Restore
+    Library:MakeDraggable(Holder, TitleBar, true)
+    Library:GiveSignal(DockButton.MouseButton1Click:Connect(Restore))
+
+    if typeof(Source.Resize) == "function" then
+        pcall(function()
+            Source:Resize()
+        end)
+    end
+
+    return Holder
+end
+
+function Library:BindFloatingPageSource(Source, Hitbox: GuiObject, Info)
+    Info = typeof(Info) == "table" and Info or {}
+    local WindowInfo = Info.WindowInfo or (Source and Source.WindowInfo) or {}
+
+    if WindowInfo.FloatingPages == false or not Source or not Hitbox then
+        return
+    end
+    if Hitbox:GetAttribute("ObsidianFloatingPageBound") then
+        return
+    end
+    Hitbox:SetAttribute("ObsidianFloatingPageBound", true)
+
+    local HoldDuration = math.max(0.4, tonumber(Info.HoldDuration or WindowInfo.FloatingPageHoldDuration) or 5)
+    local MoveTolerance = Library.IsMobile and 18 or 10
+    local PressToken = 0
+    local StartPosition: Vector3?
+
+    local function CancelHold()
+        PressToken += 1
+        StartPosition = nil
+    end
+
+    Library:GiveSignal(Hitbox.InputBegan:Connect(function(Input: InputObject)
+        if not IsClickInput(Input) or Source.IsFloating then
+            return
+        end
+
+        PressToken += 1
+        local Token = PressToken
+        StartPosition = Input.Position
+
+        local Changed
+        Changed = Input.Changed:Connect(function()
+            if Input.UserInputState ~= Enum.UserInputState.End then
+                return
+            end
+
+            if Changed and Changed.Connected then
+                Changed:Disconnect()
+            end
+            if PressToken == Token then
+                CancelHold()
+            end
+        end)
+
+        task.delay(HoldDuration, function()
+            if Changed and Changed.Connected then
+                Changed:Disconnect()
+            end
+            if PressToken ~= Token or Source.IsFloating then
+                return
+            end
+
+            StartPosition = nil
+            Library:CreateFloatingPage(Source, Info)
+        end)
+    end))
+
+    Library:GiveSignal(UserInputService.InputChanged:Connect(function(Input: InputObject)
+        if not StartPosition or not IsHoverInput(Input) then
+            return
+        end
+
+        if (Input.Position - StartPosition).Magnitude > MoveTolerance then
+            CancelHold()
+        end
+    end))
 end
 
 function Library:SetKeybindMenuSize(Width: number?, Height: number?)
@@ -12045,7 +12397,7 @@ function Library:CreateWindow(WindowInfo)
     local function GetVideoUrlExtension(Url: string): string
         local Extension = Url:gsub("[?#].*$", ""):match("%.([%w]+)$")
         if not Extension or #Extension > 5 then
-            return "mp4"
+            return "webm"
         end
 
         return Extension:lower()
@@ -16101,6 +16453,8 @@ function Library:CreateWindow(WindowInfo)
                 BoxHolder = BoxHolder,
                 Holder = GroupboxHolder,
                 Container = GroupboxContainer,
+                Text = Info.Name,
+                Type = "Groupbox",
 
                 Tab = Tab,
                 WindowInfo = WindowInfo,
@@ -16136,6 +16490,16 @@ function Library:CreateWindow(WindowInfo)
             Groupbox.SetOptimized = Groupbox.SetCollapsed
             Groupbox.ToggleOptimized = Groupbox.ToggleCollapsed
 
+            function Groupbox:Float()
+                return Library:CreateFloatingPage(Groupbox, {
+                    Title = Info.Name,
+                    IconName = Info.IconName,
+                    WindowInfo = WindowInfo,
+                    Width = Info.FloatingWidth,
+                    Height = Info.FloatingHeight,
+                })
+            end
+
             if OptimizeEnabled then
                 Groupbox.OptimizeButton = CreateOptimizeButton(GroupboxHolder, WindowInfo.CornerRadius, function()
                     Groupbox:ToggleCollapsed()
@@ -16146,6 +16510,16 @@ function Library:CreateWindow(WindowInfo)
 
             Groupbox:SetCollapsed(StartCollapsed)
             Tab.Groupboxes[Info.Name] = Groupbox
+
+            if Info.Floating ~= false and Info.FloatingPage ~= false then
+                Library:BindFloatingPageSource(Groupbox, GroupboxHolder, {
+                    Title = Info.Name,
+                    IconName = Info.IconName,
+                    WindowInfo = WindowInfo,
+                    Width = Info.FloatingWidth,
+                    Height = Info.FloatingHeight,
+                })
+            end
 
             return Groupbox
         end
@@ -16285,6 +16659,16 @@ function Library:CreateWindow(WindowInfo)
 
             Tabbox.SetOptimized = Tabbox.SetCollapsed
             Tabbox.ToggleOptimized = Tabbox.ToggleCollapsed
+
+            function Tabbox:Float()
+                return Library:CreateFloatingPage(Tabbox, {
+                    Title = Info.Name or "Tabbox",
+                    IconName = Info.IconName,
+                    WindowInfo = WindowInfo,
+                    Width = Info.FloatingWidth,
+                    Height = Info.FloatingHeight,
+                })
+            end
 
             if OptimizeEnabled then
                 Tabbox.OptimizeButton = CreateOptimizeButton(TabboxHolder, WindowInfo.CornerRadius, function()
@@ -16521,6 +16905,17 @@ function Library:CreateWindow(WindowInfo)
             end
 
             Tabbox:SetCollapsed(StartCollapsed)
+
+            if Info.Floating ~= false and Info.FloatingPage ~= false then
+                Library:BindFloatingPageSource(Tabbox, TabboxHolder, {
+                    Title = Info.Name or "Tabbox",
+                    IconName = Info.IconName,
+                    WindowInfo = WindowInfo,
+                    Width = Info.FloatingWidth,
+                    Height = Info.FloatingHeight,
+                })
+            end
+
             return Tabbox
         end
 
