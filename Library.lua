@@ -672,7 +672,7 @@ local Templates = {
         FloatingPageMaxHeight = 460,
         FloatingPageMinHeight = 150,
         FloatingPageShadow = true,
-        FloatingPageGlow = true,
+        FloatingPageGlow = false,
         TabsMode = "Sidebar", -- Sidebar, Topbar
         TabStyle = "Default", -- Default, Card
         FullscreenBackground = false,
@@ -3425,12 +3425,24 @@ function Library:CreateFloatingPage(Source, Info)
     local ViewportSize = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(800, 600)
     local DPIScale = math.max(Library.DPIScale or 1, 0.01)
     local Margin = Library.IsMobile and 12 or 18
+    local BoxHolderLayout = BoxHolder:FindFirstChildOfClass("UIListLayout")
+    local BoxHolderPadding = BoxHolder:FindFirstChildOfClass("UIPadding")
+    local function GetFloatingContentHeight()
+        local LayoutHeight = BoxHolderLayout and (BoxHolderLayout.AbsoluteContentSize.Y / DPIScale)
+            or (BoxHolder.AbsoluteSize.Y / DPIScale)
+
+        if BoxHolderPadding then
+            LayoutHeight += BoxHolderPadding.PaddingTop.Offset + BoxHolderPadding.PaddingBottom.Offset
+        end
+
+        return math.max(34, math.ceil(LayoutHeight))
+    end
     local Width = math.clamp(
         tonumber(Info.Width or WindowInfo.FloatingPageWidth) or 390,
         260,
         math.max(260, (ViewportSize.X / DPIScale) - Margin * 2)
     )
-    local ContentHeight = math.max(72, BoxHolder.AbsoluteSize.Y / DPIScale)
+    local ContentHeight = math.max(72, GetFloatingContentHeight())
     local MinHeight = math.max(110, tonumber(WindowInfo.FloatingPageMinHeight) or 150)
     local MaxHeight = math.min(
         tonumber(WindowInfo.FloatingPageMaxHeight) or 460,
@@ -3537,11 +3549,6 @@ function Library:CreateFloatingPage(Source, Info)
         Thickness = 1.25,
         ShadowTransparency = 0.45,
     })
-    Library:AddGradient(Holder, {
-        Color = WindowInfo.GradientColorSequence,
-        Rotation = WindowInfo.GradientRotation or 35,
-        Transparency = WindowInfo.GradientTransparency,
-    })
     if WindowInfo.FloatingPageShadow ~= false then
         Library:AddShadowGlow(Holder, {
             Name = "FloatingPageShadow",
@@ -3554,24 +3561,12 @@ function Library:CreateFloatingPage(Source, Info)
             ZIndex = Holder.ZIndex - 1,
         })
     end
-    if WindowInfo.FloatingPageGlow ~= false then
-        Library:AddShadowGlow(Holder, {
-            Name = "FloatingPageGlow",
-            Color = WindowInfo.WindowGlowColor or "WhiteColor",
-            Transparency = WindowInfo.WindowGlowTransparency or 0.9,
-            Size = WindowInfo.WindowGlowSize or 16,
-            Offset = Vector2.zero,
-            Image = WindowInfo.WindowGlowImage,
-            ScaleWithDPI = true,
-            ZIndex = Holder.ZIndex - 1,
-        })
-    end
 
     local TitleBar = New("TextButton", {
         BackgroundTransparency = 1,
         Size = UDim2.new(1, 0, 0, 38),
         Text = "",
-        ZIndex = Holder.ZIndex + 1,
+        ZIndex = Holder.ZIndex + 20,
         Parent = Holder,
     })
     Library:MakeLine(Holder, {
@@ -3658,13 +3653,68 @@ function Library:CreateFloatingPage(Source, Info)
         Parent = FloatingContainer,
     })
 
+    local OriginalZIndexes = {}
+    local function ApplyFloatingZIndex(InstanceObject: Instance)
+        if not InstanceObject:IsA("GuiObject") then
+            return
+        end
+
+        if OriginalZIndexes[InstanceObject] == nil then
+            OriginalZIndexes[InstanceObject] = InstanceObject.ZIndex
+        end
+
+        local OriginalZIndex = OriginalZIndexes[InstanceObject]
+        InstanceObject.ZIndex = math.max(InstanceObject.ZIndex, Holder.ZIndex + 3 + OriginalZIndex)
+    end
+
+    local function RaiseFloatingContentZIndex()
+        ApplyFloatingZIndex(BoxHolder)
+        for _, Descendant in BoxHolder:GetDescendants() do
+            ApplyFloatingZIndex(Descendant)
+        end
+    end
+
+    local function RestoreFloatingContentZIndex()
+        for InstanceObject, ZIndex in pairs(OriginalZIndexes) do
+            if InstanceObject and InstanceObject.Parent then
+                SafeSetInstanceProperty(InstanceObject, "ZIndex", ZIndex)
+            end
+        end
+        table.clear(OriginalZIndexes)
+    end
+
+    local FloatingDescendantConnection = BoxHolder.DescendantAdded:Connect(function(Descendant)
+        task.defer(function()
+            if Source.FloatingWindow == Holder and Holder.Parent then
+                ApplyFloatingZIndex(Descendant)
+            end
+        end)
+    end)
+
+    local function RefreshFloatingContentSize()
+        if Source.FloatingWindow ~= Holder or not Holder.Parent then
+            return
+        end
+
+        BoxHolder.AutomaticSize = Enum.AutomaticSize.None
+        BoxHolder.Size = UDim2.new(1, 0, 0, GetFloatingContentHeight())
+    end
+
+    local FloatingContentSizeConnection
+    if BoxHolderLayout then
+        FloatingContentSizeConnection = BoxHolderLayout:GetPropertyChangedSignal("AbsoluteContentSize")
+            :Connect(function()
+                RefreshFloatingContentSize()
+            end)
+    end
+
     local ResizeButton = New("TextButton", {
         AnchorPoint = Vector2.new(1, 1),
         BackgroundTransparency = 1,
         Position = UDim2.new(1, -2, 1, -2),
         Size = UDim2.fromOffset(Library.IsMobile and 36 or 28, Library.IsMobile and 36 or 28),
         Text = "",
-        ZIndex = Holder.ZIndex + 3,
+        ZIndex = Holder.ZIndex + 30,
         Parent = Holder,
     })
     local ResizeIcon = Library:GetIcon("move-diagonal-2") or Library:GetIcon("maximize-2")
@@ -3740,9 +3790,10 @@ function Library:CreateFloatingPage(Source, Info)
 
     BoxHolder.Parent = FloatingContainer
     BoxHolder.LayoutOrder = 0
-    BoxHolder.Size = UDim2.new(1, 0, 0, 0)
-    BoxHolder.AutomaticSize = Enum.AutomaticSize.Y
+    BoxHolder.AutomaticSize = Enum.AutomaticSize.None
+    BoxHolder.Size = UDim2.new(1, 0, 0, GetFloatingContentHeight())
     BoxHolder.Visible = true
+    RaiseFloatingContentZIndex()
 
     Source.FloatingWindow = Holder
     Source.FloatingPlaceholder = Placeholder
@@ -3768,6 +3819,14 @@ function Library:CreateFloatingPage(Source, Info)
         Source.FloatingPlaceholder = nil
         Source.FloatingSyncToken = nil
         Source.IsFloating = false
+
+        if FloatingDescendantConnection and FloatingDescendantConnection.Connected then
+            FloatingDescendantConnection:Disconnect()
+        end
+        if FloatingContentSizeConnection and FloatingContentSizeConnection.Connected then
+            FloatingContentSizeConnection:Disconnect()
+        end
+        RestoreFloatingContentZIndex()
 
         if Original.Parent and Original.Parent.Parent then
             BoxHolder.Parent = Original.Parent
@@ -3807,6 +3866,10 @@ function Library:CreateFloatingPage(Source, Info)
             Source:Resize()
         end)
     end
+    task.defer(function()
+        RefreshFloatingContentSize()
+        RaiseFloatingContentZIndex()
+    end)
 
     return Holder
 end
